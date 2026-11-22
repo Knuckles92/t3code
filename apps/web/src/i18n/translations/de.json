@@ -12983,10 +12983,10 @@
   "d8aaf932f90429c4": "Diesen Befehl an den Anfang der Warteschlange verschieben ({shortcut})",
   "425ab15036aec8a4": "Diesen Befehl an den Anfang der Warteschlange verschieben",
   "d49e8fb40e7a1ac4": "Standardberechtigungen für neue Threads. Anbieter und Projekte können sie überschreiben.",
-  "5740311f83eeb89f": "Berechtigungen für neue Threads mit diesem Anbieter. Projekt-Überschreibungen haben Vorrang.",
   "cd681d256157e999": "Standardberechtigungen für {provider} zurücksetzen",
   "070fc265fa56c7c9": "Standardberechtigungen für {provider}",
   "f62a0f447ff43e4f": "Standard verwenden ({mode})",
   "0f1663b759c535db": "Allgemeine oder Projekt-Standardeinstellung übernehmen ({mode}).",
-  "5acaf61225717fe3": "Standard verwenden"
+  "5acaf61225717fe3": "Standard verwenden",
+  "f7162f8a0d0b7082": "Berechtigungen beim Starten oder Wechseln zu diesem Anbieter. Projektüberschreibungen haben Vorrang."
 }

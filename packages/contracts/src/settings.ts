@@ -1723,6 +1723,42 @@ export const resolveDefaultRuntimeMode = (
   return providerOverride ?? settings.defaultRuntimeMode;
 };
 
+/**
+ * Permissions mode to apply when switching the composer from one provider instance to another.
+ * Returns `undefined` when staying on the same provider, when a project override governs all
+ * providers in the project, or when neither provider overrides the environment default, so manual
+ * per-thread choices are preserved unless per-provider defaults are in effect.
+ */
+export const resolveProviderSwitchRuntimeMode = (
+  settings: Pick<
+    ServerSettings,
+    "defaultRuntimeMode" | "providerInstances" | "projectSettingsOverrides"
+  >,
+  projectId: ProjectId | null,
+  previousInstanceId: ProviderInstanceId | null | undefined,
+  nextInstanceId: ProviderInstanceId,
+): RuntimeMode | undefined => {
+  if (previousInstanceId === nextInstanceId) {
+    return undefined;
+  }
+  const projectOverride =
+    projectId === null
+      ? undefined
+      : settings.projectSettingsOverrides[projectId]?.defaultRuntimeMode;
+  if (projectOverride !== undefined) {
+    return undefined;
+  }
+  const nextProviderOverride = Object.hasOwn(settings.providerInstances, nextInstanceId)
+    ? settings.providerInstances[nextInstanceId]?.defaultRuntimeMode
+    : undefined;
+  const previousDefault = resolveDefaultRuntimeMode(settings, projectId, previousInstanceId);
+  const nextDefault = resolveDefaultRuntimeMode(settings, projectId, nextInstanceId);
+  if (nextProviderOverride !== undefined || nextDefault !== previousDefault) {
+    return nextDefault;
+  }
+  return undefined;
+};
+
 /** The text generator a selection names, if any; it takes precedence over a provider instance. */
 export const textGeneratorForSelection = (
   settings: Pick<ServerSettings, "textGenerators">,

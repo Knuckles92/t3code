@@ -3,11 +3,13 @@ import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import {
   EnvironmentId,
+  ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
   RunId,
   ThreadId,
   type ServerProvider,
+  type UnifiedSettings,
 } from "@t3tools/contracts";
 import { DEFAULT_UNIFIED_SETTINGS } from "@t3tools/contracts/settings";
 import { createModelSelection } from "@t3tools/shared/model";
@@ -55,7 +57,9 @@ function setup() {
 }
 
 const environmentId = EnvironmentId.make("environment-local");
+const projectId = ProjectId.make("project-1");
 const cursor = ProviderInstanceId.make("cursor");
+const codex = ProviderInstanceId.make("codex");
 const stored = createModelSelection(cursor, "claude-opus-5-5", [{ id: "effort", value: "medium" }]);
 
 const providers: ReadonlyArray<ServerProvider> = [
@@ -72,18 +76,39 @@ const providers: ReadonlyArray<ServerProvider> = [
     slashCommands: [],
     skills: [],
   },
+  {
+    instanceId: codex,
+    driver: ProviderDriverKind.make("codex"),
+    enabled: true,
+    installed: true,
+    version: null,
+    status: "ready",
+    auth: { status: "authenticated" },
+    checkedAt: "2026-01-01T00:00:00.000Z",
+    models: [{ slug: "gpt-5.4", name: "GPT-5.4", isCustom: false, capabilities: {} }],
+    slashCommands: [],
+    skills: [],
+  },
 ];
 
-// The hook reads only the thread's identity and stored selection.
+// The hook reads only the thread's identity, project, runtimeMode, and stored selection.
 function cursorThread(id: string) {
-  return { environmentId, id: ThreadId.make(id), modelSelection: stored } as EnvironmentThreadShell;
+  return {
+    environmentId,
+    id: ThreadId.make(id),
+    projectId,
+    runtimeMode: "full-access",
+    modelSelection: stored,
+  } as EnvironmentThreadShell;
 }
 
 function Picker(props: {
   thread: EnvironmentThreadShell;
   runtime: Parameters<typeof useComposerSelection>[0]["activeRuntime"];
+  instanceId?: ProviderInstanceId;
   model?: string;
   draftTarget?: Parameters<typeof useComposerSelection>[0]["composerDraftTarget"];
+  settings?: UnifiedSettings;
 }) {
   const { onProviderModelSelectStable } = useComposerSelection({
     environmentId,
@@ -92,7 +117,7 @@ function Picker(props: {
     activeThread: props.thread,
     activeRuntime: props.runtime,
     activeProjectSettings: { settings: { newWorktreesStartFromOrigin: false } },
-    settings: DEFAULT_UNIFIED_SETTINGS,
+    settings: props.settings ?? DEFAULT_UNIFIED_SETTINGS,
     providerStatuses: providers,
     lockedProvider: null,
     supportsProviderSwitchingViaHandoff: true,
@@ -107,7 +132,9 @@ function Picker(props: {
   return (
     <button
       type="button"
-      onClick={() => onProviderModelSelectStable(cursor, props.model ?? stored.model)}
+      onClick={() =>
+        onProviderModelSelectStable(props.instanceId ?? cursor, props.model ?? stored.model)
+      }
     >
       Pick the model
     </button>
@@ -228,4 +255,38 @@ it("keeps a queued edit's model pick in its own draft", async () => {
   );
   expect(store.getComposerDraft(threadRef)).toBeNull();
   expect(setModelSelection).not.toHaveBeenCalled();
+});
+
+it("applies the target provider's default permissions when switching providers", async () => {
+  setup();
+  const thread = cursorThread("thread-provider-switch-permissions");
+  const settings: UnifiedSettings = {
+    ...DEFAULT_UNIFIED_SETTINGS,
+    defaultRuntimeMode: "full-access",
+    providerInstances: {
+      ...DEFAULT_UNIFIED_SETTINGS.providerInstances,
+      [codex]: {
+        driver: ProviderDriverKind.make("codex"),
+        defaultRuntimeMode: "approval-required",
+      },
+    },
+  };
+  await using _screen = await render(
+    <Picker
+      thread={thread}
+      runtime={null}
+      instanceId={codex}
+      model="gpt-5.4"
+      settings={settings}
+    />,
+  );
+  await page.getByRole("button", { name: "Pick the model" }).click();
+
+  await vi.waitFor(() => {
+    const draft = useComposerDraftStore
+      .getState()
+      .getComposerDraft(scopeThreadRef(environmentId, thread.id));
+    expect(draft?.activeProvider).toBe(codex);
+    expect(draft?.runtimeMode).toBe("approval-required");
+  });
 });

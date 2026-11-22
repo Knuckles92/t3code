@@ -6,7 +6,11 @@ import { T, useGT, useLocale, useMessages } from "gt-react-native";
 import * as Dialog from "../../components/ui/Dialog";
 import { createV5StackNavigator as createNativeStackNavigator } from "../../native/createV5StackNavigator";
 import { useSheetStackOptions } from "../layout/nested-stacks";
-import { DEFAULT_SERVER_SETTINGS, ProviderInstanceId } from "@t3tools/contracts";
+import {
+  DEFAULT_SERVER_SETTINGS,
+  ProviderInstanceId,
+  resolveProviderSwitchRuntimeMode,
+} from "@t3tools/contracts";
 import {
   modelPreferencesMigrationPatch,
   resolveModelPreferences,
@@ -516,6 +520,7 @@ function ThreadSettingsSessionProvider(
   );
   const [pendingModel, setPendingModel] = useState<ModelOption | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [pendingRuntimeMode, setPendingRuntimeMode] = useState<RuntimeMode | null>(null);
   const displayedPrompt = pendingModel ? (pendingPrompt ?? props.prompt) : props.prompt;
 
   const isApplied = (option: ModelOption) =>
@@ -535,13 +540,25 @@ function ThreadSettingsSessionProvider(
     pendingModel ??
     props.providerGroups.flatMap((group) => group.models).find((option) => isApplied(option)) ??
     null;
+  const pendingSwitchRuntimeMode =
+    pendingModel && settings
+      ? resolveProviderSwitchRuntimeMode(
+          settings,
+          props.projectId ?? null,
+          props.selectedModel?.instanceId,
+          pendingModel.selection.instanceId,
+        )
+      : undefined;
+  const displayedRuntimeMode = pendingModel
+    ? (pendingRuntimeMode ?? pendingSwitchRuntimeMode ?? props.runtimeMode)
+    : props.runtimeMode;
   const runtimeModeChoices = withManagedRuntimeModeLimits(
     runtimeModeChoicesForSupportedModes(displayedModel?.supportedRuntimeModes),
     [config?.managedPolicy],
     messages,
   );
   const compatibleRuntimeMode = compatibleRuntimeModeForChoices(
-    props.runtimeMode,
+    displayedRuntimeMode,
     runtimeModeChoices,
   );
 
@@ -559,6 +576,9 @@ function ThreadSettingsSessionProvider(
       }
       void Haptics.selectionAsync();
       props.onSelectModel(pendingModel);
+      if (pendingRuntimeMode !== null) {
+        props.onUpdateRuntimeMode(pendingRuntimeMode);
+      }
       if (pendingPrompt !== null && pendingPrompt !== props.prompt) {
         props.onPromptChange(pendingPrompt);
       }
@@ -616,17 +636,22 @@ function ThreadSettingsSessionProvider(
 
   const pressModel = (option: ModelOption) => {
     void Haptics.selectionAsync();
+    const nextPendingModel = pendingModelAfterPress({
+      current: pendingModel,
+      pressed: option,
+      pressedIsApplied: isApplied(option),
+      restoreSelection: props.restoreSelection,
+    });
     if (isApplied(option) || option.key !== pendingModel?.key) {
       setPendingPrompt(null);
     }
-    setPendingModel((current) =>
-      pendingModelAfterPress({
-        current,
-        pressed: option,
-        pressedIsApplied: isApplied(option),
-        restoreSelection: props.restoreSelection,
-      }),
-    );
+    if (
+      nextPendingModel === null ||
+      nextPendingModel.selection.instanceId !== pendingModel?.selection.instanceId
+    ) {
+      setPendingRuntimeMode(null);
+    }
+    setPendingModel(nextPendingModel);
   };
 
   const environmentId = props.environmentId;
@@ -646,7 +671,13 @@ function ThreadSettingsSessionProvider(
     pendingHiddenKeys,
     runtimeMode: compatibleRuntimeMode,
     runtimeModeChoices,
-    onUpdateRuntimeMode: props.onUpdateRuntimeMode,
+    onUpdateRuntimeMode: (mode: RuntimeMode) => {
+      if (pendingModel) {
+        setPendingRuntimeMode(mode);
+      } else {
+        props.onUpdateRuntimeMode(mode);
+      }
+    },
     displayedDescriptors,
     promptTraits,
     displayedModelSelection: pendingModel?.selection ?? props.selectedModel,
@@ -1551,14 +1582,29 @@ export function ExistingThreadSettingsRouteScreen({
       prompt={prompt}
       onPromptChange={(text) => setComposerDraftText(draftKey, text)}
       reportedModelSelection={reportedModelSelection}
-      onSelectModel={(option) =>
-        updateModelSelection(
-          withStoredThreadModelOptions(
-            withRememberedModelOptions(option.selection),
-            selectedThread.modelSelection,
-          ),
-        )
-      }
+      onSelectModel={(option) => {
+        const nextSelection = withStoredThreadModelOptions(
+          withRememberedModelOptions(option.selection),
+          selectedThread.modelSelection,
+        );
+        updateModelSelection(nextSelection);
+        if (serverConfig) {
+          const nextSwitchRuntimeMode = resolveProviderSwitchRuntimeMode(
+            serverConfig.settings,
+            selectedThread.projectId,
+            modelSelection.instanceId,
+            nextSelection.instanceId,
+          );
+          if (nextSwitchRuntimeMode !== undefined) {
+            updateComposerDraftSettings(threadKey, {
+              runtimeMode:
+                nextSwitchRuntimeMode === selectedThread.runtimeMode
+                  ? undefined
+                  : nextSwitchRuntimeMode,
+            });
+          }
+        }
+      }}
       restoreSelection={withRememberedModelOptions}
       optionDescriptors={resolveProviderOptionDescriptors({
         capabilities: currentModelOption?.capabilities,

@@ -26,6 +26,7 @@ import {
   type EnvironmentId,
   type ModelSelection,
   type PreviewAnnotationPayload,
+  type ProviderInstanceId,
   type ResponseContextRecord,
   type ScopedThreadRef,
   type ThreadContextRecord,

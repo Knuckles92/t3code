@@ -12978,10 +12978,10 @@
   "d8aaf932f90429c4": "Mover este comando al principio de la cola ({shortcut})",
   "425ab15036aec8a4": "Mover este comando al principio de la cola",
   "d49e8fb40e7a1ac4": "Permisos predeterminados para nuevos hilos. Los proveedores y proyectos pueden sobrescribirlos.",
-  "5740311f83eeb89f": "Permisos para nuevos hilos con este proveedor. Las anulaciones del proyecto tienen prioridad.",
   "cd681d256157e999": "Restablecer los permisos predeterminados de {provider}",
   "070fc265fa56c7c9": "Permisos predeterminados de {provider}",
   "f62a0f447ff43e4f": "Usar predeterminado ({mode})",
   "0f1663b759c535db": "Heredar el valor predeterminado general o del proyecto ({mode}).",
-  "5acaf61225717fe3": "Usar predeterminado"
+  "5acaf61225717fe3": "Usar predeterminado",
+  "f7162f8a0d0b7082": "Permisos al iniciar o cambiar a este proveedor. Las anulaciones del proyecto tienen prioridad."
 }

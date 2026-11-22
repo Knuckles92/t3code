@@ -1429,7 +1429,7 @@ export function ProviderInstanceCard({
         <SettingsRow
           title={gt("Default permissions")}
           description={gt(
-            "Permissions for new threads using this provider. Project overrides take precedence.",
+            "Permissions when starting or switching to this provider. Project overrides take precedence.",
           )}
           managed={defaultPermissionsManagedReason}
           resetAction={

@@ -9,6 +9,7 @@ import {
   type EnvironmentId,
   type ModelSelection,
   ProviderInstanceId,
+  resolveProviderSwitchRuntimeMode,
   type ServerProvider,
   type ThreadId,
   RuntimeMode,
@@ -235,6 +236,23 @@ export function useComposerSelection(input: ComposerSelectionInput) {
       explicit: true,
       replaceOptions: true,
     });
+    const nextSwitchRuntimeMode = resolveProviderSwitchRuntimeMode(
+      settings,
+      activeThread.projectId,
+      shownInstanceId,
+      instanceId,
+    );
+    if (nextSwitchRuntimeMode !== undefined) {
+      if (isLocalDraftThread) {
+        setComposerDraftRuntimeMode(composerDraftTarget, null);
+        setDraftThreadContext(composerDraftTarget, { runtimeMode: nextSwitchRuntimeMode });
+      } else {
+        setComposerDraftRuntimeMode(
+          composerDraftTarget,
+          nextSwitchRuntimeMode === activeThread.runtimeMode ? null : nextSwitchRuntimeMode,
+        );
+      }
+    }
     setStickyComposerModelSelection(nextModelSelection);
     if (!isLocalDraftThread) applyThreadModelPick(composerDraftTarget);
     if (options?.focusComposer !== false) scheduleComposerFocus();

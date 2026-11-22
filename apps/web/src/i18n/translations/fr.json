@@ -12983,10 +12983,10 @@
   "d8aaf932f90429c4": "Placer cette commande en tête de la file d’attente ({shortcut})",
   "425ab15036aec8a4": "Placer cette commande en tête de la file d’attente",
   "d49e8fb40e7a1ac4": "Autorisations par défaut pour les nouveaux fils. Les fournisseurs et les projets peuvent les remplacer.",
-  "5740311f83eeb89f": "Autorisations pour les nouveaux fils utilisant ce fournisseur. Les remplacements de projet prévalent.",
   "cd681d256157e999": "Réinitialiser les autorisations par défaut de {provider}",
   "070fc265fa56c7c9": "Autorisations par défaut de {provider}",
   "f62a0f447ff43e4f": "Utiliser la valeur par défaut ({mode})",
   "0f1663b759c535db": "Hériter de la valeur par défaut générale ou du projet ({mode}).",
-  "5acaf61225717fe3": "Utiliser la valeur par défaut"
+  "5acaf61225717fe3": "Utiliser la valeur par défaut",
+  "f7162f8a0d0b7082": "Autorisations lors du démarrage ou du basculement vers ce fournisseur. Les remplacements du projet ont priorité."
 }

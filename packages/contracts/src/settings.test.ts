@@ -21,6 +21,7 @@ import {
   resolveIdleCompaction,
   resolveProjectProviderInstanceEnabled,
   resolveProviderInstanceEnabled,
+  resolveProviderSwitchRuntimeMode,
   ServerSettings,
   ServerSettingsPatch,
   withIdleCompaction,
@@ -580,5 +581,56 @@ describe("resolveDefaultRuntimeMode", () => {
     expect(resolveDefaultRuntimeMode(settings, projectB, claude)).toBe("full-access");
     expect(resolveDefaultRuntimeMode(settings, projectB, null)).toBe("full-access");
     expect(resolveDefaultRuntimeMode(settings, projectA, codex)).toBe("approval-required");
+  });
+});
+
+describe("resolveProviderSwitchRuntimeMode", () => {
+  it("returns the target provider default when switching between providers with overrides", () => {
+    const projectA = ProjectId.make("project-a");
+    const projectB = ProjectId.make("project-b");
+    const codex = ProviderInstanceId.make("codex");
+    const claude = ProviderInstanceId.make("claudeAgent");
+    const cursor = ProviderInstanceId.make("cursor");
+    const settings = decodeServerSettings({
+      defaultRuntimeMode: "full-access",
+      providerInstances: {
+        [codex]: { driver: "codex", defaultRuntimeMode: "approval-required" },
+        [claude]: { driver: "claudeAgent" },
+        [cursor]: { driver: "cursor" },
+      },
+      projectSettingsOverrides: {
+        [projectA]: { defaultRuntimeMode: "auto-accept-edits" },
+      },
+    });
+
+    // Staying on the same provider preserves the thread's current permissions.
+    expect(resolveProviderSwitchRuntimeMode(settings, projectB, codex, codex)).toBeUndefined();
+    // Switching from a provider inheriting the environment default to one with an override applies the override.
+    expect(resolveProviderSwitchRuntimeMode(settings, projectB, claude, codex)).toBe(
+      "approval-required",
+    );
+    // Switching back from an overridden provider restores the target provider's resolved default.
+    expect(resolveProviderSwitchRuntimeMode(settings, projectB, codex, claude)).toBe("full-access");
+    // Switching between two providers that both inherit the environment default leaves manual modes intact.
+    expect(resolveProviderSwitchRuntimeMode(settings, projectB, claude, cursor)).toBeUndefined();
+    // Explicit project overrides govern every provider in the project, so switching providers does not override them.
+    expect(resolveProviderSwitchRuntimeMode(settings, projectA, claude, codex)).toBeUndefined();
+    expect(resolveProviderSwitchRuntimeMode(settings, projectA, codex, claude)).toBeUndefined();
+  });
+
+  it("applies the target provider override even when both providers share the same default", () => {
+    const codex = ProviderInstanceId.make("codex");
+    const claude = ProviderInstanceId.make("claudeAgent");
+    const settings = decodeServerSettings({
+      defaultRuntimeMode: "full-access",
+      providerInstances: {
+        [codex]: { driver: "codex", defaultRuntimeMode: "approval-required" },
+        [claude]: { driver: "claudeAgent", defaultRuntimeMode: "approval-required" },
+      },
+    });
+
+    expect(resolveProviderSwitchRuntimeMode(settings, null, claude, codex)).toBe(
+      "approval-required",
+    );
   });
 });

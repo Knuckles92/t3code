@@ -12983,10 +12983,10 @@
   "d8aaf932f90429c4": "Mover este comando para o início da fila ({shortcut})",
   "425ab15036aec8a4": "Mover este comando para o início da fila",
   "d49e8fb40e7a1ac4": "Permissões padrão para novas conversas. Provedores e projetos podem substituí-las.",
-  "5740311f83eeb89f": "Permissões para novas conversas usando este provedor. Substituições de projeto têm prioridade.",
   "cd681d256157e999": "Redefinir permissões padrão de {provider}",
   "070fc265fa56c7c9": "Permissões padrão de {provider}",
   "f62a0f447ff43e4f": "Usar padrão ({mode})",
   "0f1663b759c535db": "Herdar o padrão geral ou do projeto ({mode}).",
-  "5acaf61225717fe3": "Usar padrão"
+  "5acaf61225717fe3": "Usar padrão",
+  "f7162f8a0d0b7082": "Permissões ao iniciar ou alternar para este provedor. As substituições do projeto têm precedência."
 }

@@ -12992,10 +12992,10 @@
   "d8aaf932f90429c4": "Move this command to the front of the queue ({shortcut})",
   "425ab15036aec8a4": "Move this command to the front of the queue",
   "d49e8fb40e7a1ac4": "Default permissions for new threads. Providers and projects can override them.",
-  "5740311f83eeb89f": "Permissions for new threads using this provider. Project overrides take precedence.",
   "cd681d256157e999": "Reset {provider} default permissions to default",
   "070fc265fa56c7c9": "{provider} default permissions",
   "f62a0f447ff43e4f": "Use default ({mode})",
   "0f1663b759c535db": "Inherit the general or project default ({mode}).",
-  "5acaf61225717fe3": "Use default"
+  "5acaf61225717fe3": "Use default",
+  "f7162f8a0d0b7082": "Permissions when starting or switching to this provider. Project overrides take precedence."
 }

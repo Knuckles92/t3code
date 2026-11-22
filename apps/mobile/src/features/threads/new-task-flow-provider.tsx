@@ -20,6 +20,7 @@ import {
   MessageId,
   repositoryGroupingKeyOf,
   resolveDefaultRuntimeMode,
+  resolveProviderSwitchRuntimeMode,
   ThreadId,
 } from "@t3tools/contracts";
 import { threadContextsOutsideEnvironment } from "@t3tools/shared/composerContextReferences";
@@ -533,7 +534,18 @@ export function NewTaskFlowProvider(
     const selection = withRememberedModelOptions(
       options ? { ...option.selection, options } : option.selection,
     );
-    updateComposerDraftSettings(selectedProjectDraftKey, { modelSelection: selection });
+    const nextSwitchRuntimeMode = selectedEnvironmentServerConfig
+      ? resolveProviderSwitchRuntimeMode(
+          selectedEnvironmentServerConfig.settings,
+          selectedProject?.id ?? null,
+          selectedModel?.instanceId,
+          selection.instanceId,
+        )
+      : undefined;
+    updateComposerDraftSettings(selectedProjectDraftKey, {
+      modelSelection: selection,
+      ...(nextSwitchRuntimeMode !== undefined ? { runtimeMode: undefined } : {}),
+    });
     setStickyComposerModelSelection(selection);
   };
   const setSelectedModelOptions = (options: ReadonlyArray<ProviderOptionSelection> | undefined) => {
