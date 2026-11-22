@@ -4,6 +4,7 @@ import {
   DEFAULT_PROVIDER_INTERACTION_MODE,
   DEFAULT_RUNTIME_MODE,
   isRuntimeModeAbove,
+  resolveDefaultRuntimeMode,
   AgentSessionImportProjectChangedError,
   AgentSessionImportProjectNotFoundError,
   AgentSessionScanError,
@@ -12,6 +13,7 @@ import {
   MessageId,
   ProjectId,
   ProviderDriverKind,
+  type ProviderInstanceId,
   ThreadId,
   TurnItemId,
   type AgentSessionImportInput,
@@ -23,7 +25,6 @@ import {
   type OrchestrationV2TurnItem,
 } from "@t3tools/contracts";
 import { normalizeProjectPathForComparison } from "@t3tools/shared/path";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -225,21 +226,21 @@ const make = Effect.gen(function* () {
     ) {
       return yield* new AgentSessionImportProjectChangedError({ projectId: input.projectId });
     }
-    // Imports run in full access, except under a policy ceiling: then in the project's default,
-    // which the policy keeps under it, so imported threads never sit above the ceiling.
-    const runtimeMode =
+    // Imports run in full access, except under a policy ceiling: then in the thread's resolved
+    // default, which the policy keeps under it, so imported threads never sit above the ceiling.
+    const settingsForCeiling =
       ceiling === undefined
-        ? DEFAULT_RUNTIME_MODE
+        ? null
         : yield* settingsService.getSettings.pipe(
             Effect.mapError(
               (cause) => new AgentSessionScanError({ operation: "read-settings", cause }),
             ),
-            Effect.map((settings) => {
-              const mode = resolveProjectSettings(settings, input.projectId, project).settings
-                .defaultRuntimeMode;
-              return isRuntimeModeAbove(mode, ceiling) ? ceiling : mode;
-            }),
           );
+    const runtimeModeForInstance = (instanceId: ProviderInstanceId) => {
+      if (ceiling === undefined || settingsForCeiling === null) return DEFAULT_RUNTIME_MODE;
+      const mode = resolveDefaultRuntimeMode(settingsForCeiling, input.projectId, instanceId);
+      return isRuntimeModeAbove(mode, ceiling) ? ceiling : mode;
+    };
     const runtimeRows = yield* runtimes
       .list()
       .pipe(
@@ -300,6 +301,7 @@ const make = Effect.gen(function* () {
             });
           }
           const driver = ProviderDriverKind.make(thread.source);
+          const runtimeMode = runtimeModeForInstance(thread.providerInstanceId);
           // Pi resumes by session file path; its session UUID only names the thread.
           const nativeThreadId =
             thread.source === "pi" ? source.filePath : thread.providerSessionId;

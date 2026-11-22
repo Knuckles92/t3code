@@ -38,6 +38,7 @@ const testState = vi.hoisted(() => {
     }),
   };
   const draftStore = {
+    stickyActiveProvider: null as string | null,
     getComposerDraft: vi.fn((draftId: string) => ({ draftId })),
     getDraftSessionByLogicalProjectKey: vi.fn(() => storedDraft),
     getDraftSession: vi.fn(() =>
@@ -163,6 +164,8 @@ vi.mock("@t3tools/client-runtime/environment", () => ({
 vi.mock("@t3tools/contracts", () => ({
   DEFAULT_RUNTIME_MODE: "default",
   DEFAULT_SERVER_SETTINGS: {},
+  resolveDefaultRuntimeMode: (settings: { defaultRuntimeMode?: RuntimeMode }) =>
+    settings.defaultRuntimeMode ?? "full-access",
 }));
 vi.mock("@t3tools/shared/projectSettings", () => ({
   resolveProjectSettings: (
@@ -213,7 +216,10 @@ vi.mock("../lib/chatThreadActions", async (importOriginal) => ({
   hasExplicitComposerModelSelection: () => false,
   resolveNewThreadModelSelectionOverride: () => null,
 }));
-vi.mock("../providerInstances", () => ({ resolveDefaultProviderModelSelection: () => null }));
+vi.mock("../providerInstances", () => ({
+  resolveDefaultProviderModelSelection: () => null,
+  resolveProjectDefaultProviderModelSelection: () => null,
+}));
 vi.mock("../lib/t3ProjectFileDefaults", () => ({
   readT3ProjectFile: () => testState.projectFileRead,
   peekT3ProjectFile: () => undefined,

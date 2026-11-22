@@ -9158,7 +9158,6 @@
   "9db5fe9e87e35e10": "Reservmodellen sparades inte",
   "b0c77717b7d7b4a3": "Nya trådar",
   "3dee662c2b837a30": "Behörigheter för nya trådar i det här projektet.",
-  "b886096e397a9d88": "Standardbehörigheter för nya trådar. Projekt kan åsidosätta dem.",
   "367269c9abaa3d2c": "Återställ standardbehörigheter till standard",
   "369554d95bf3fc1e": "Standardbehörigheter",
   "abe5615aea30066d": "Pulla automatiskt",
@@ -12987,5 +12986,14 @@
   "201490988858b511": "återkallad av {by}",
   "99451a5d2d40440f": "Återkallad av {by}.",
   "3ee30a50b70fffab": "Återkallad av {by}: {reason}",
-  "92e129bf413a1220": "återkallad"
+  "92e129bf413a1220": "återkallad",
+  "d8aaf932f90429c4": "Flytta det här kommandot först i kön ({shortcut})",
+  "425ab15036aec8a4": "Flytta det här kommandot först i kön",
+  "d49e8fb40e7a1ac4": "Standardbehörigheter för nya trådar. Leverantörer och projekt kan åsidosätta dem.",
+  "5740311f83eeb89f": "Behörigheter för nya trådar som använder denna leverantör. Projektåsidosättningar har företräde.",
+  "cd681d256157e999": "Återställ standardbehörigheter för {provider}",
+  "070fc265fa56c7c9": "Standardbehörigheter för {provider}",
+  "f62a0f447ff43e4f": "Använd standard ({mode})",
+  "0f1663b759c535db": "Ärv den allmänna eller projektets standard ({mode}).",
+  "5acaf61225717fe3": "Använd standard"
 }

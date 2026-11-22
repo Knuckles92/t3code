@@ -37,6 +37,12 @@ import { SettingsScreen } from "./components/SettingsScreen";
 import { SettingsSection } from "./components/SettingsSection";
 import { AddClaudeAccount, ClaudeAccount } from "./ClaudeAccounts";
 import { CLAUDE_DRIVER } from "./claude-accounts";
+import {
+  buildProviderDefaultPermissionsMenuAction,
+  parseProviderDefaultPermissionsMenuAction,
+  planProviderDefaultRuntimeModeMutation,
+  runtimeModeLabel,
+} from "./provider-default-permissions";
 import { useSettingsEnvironmentFilter, type SettingsTarget } from "./settings-environment-filter";
 
 export function SettingsProviderAccountsRouteScreen() {
@@ -99,6 +105,10 @@ function EnvironmentProviders({
   const claudeAccounts = providers.filter(
     (provider) => provider.driver === CLAUDE_DRIVER && !canManageProvider(provider),
   );
+  const otherProviders = providers.filter(
+    (provider) =>
+      !canManageProvider(provider) && provider.driver !== CLAUDE_DRIVER && provider.enabled,
+  );
   const canAddClaude = isManagedDriverAllowed(
     environment.serverConfig.managedPolicy,
     CLAUDE_DRIVER,
@@ -120,6 +130,13 @@ function EnvironmentProviders({
       ) : null}
       {claudeAccounts.map((provider) => (
         <ClaudeAccount key={provider.instanceId} environment={environment} provider={provider} />
+      ))}
+      {otherProviders.map((provider) => (
+        <ProviderPermissionsRow
+          key={provider.instanceId}
+          environment={environment}
+          provider={provider}
+        />
       ))}
       {canAddClaude ? <AddClaudeAccount environment={environment} /> : null}
     </>
@@ -163,9 +180,11 @@ function ProviderAccount({
   const cancel = useAtomCommand(serverEnvironment.cancelProviderAuth, options);
   const logout = useAtomCommand(serverEnvironment.logoutProviderAuth, options);
   const removeMethod = useAtomCommand(serverEnvironment.removeProviderAuthMethod, options);
+  const mutateProviderInstance = useAtomCommand(serverEnvironment.mutateProviderInstance, options);
   const canRemoveMethod = useAtomValue(
     serverEnvironment.removeProviderAuthMethod.permissionAtom(environmentId),
   );
+  const instance = environment.serverConfig.settings.providerInstances[provider.instanceId];
   // Matches ListRowLayout: large text stacks the action below instead of squeezing the status.
   const stacked = useWindowDimensions().fontScale >= 1.5;
   const [pending, setPending] = useState(false);
@@ -319,6 +338,26 @@ function ProviderAccount({
     );
   }
   function onMenuAction(id: string) {
+    const permissionPick = parseProviderDefaultPermissionsMenuAction(id);
+    if (permissionPick.matched) {
+      const plan = planProviderDefaultRuntimeModeMutation({
+        providerInstances: environment.serverConfig.settings.providerInstances,
+        policy: environment.serverConfig.managedPolicy,
+        instanceId: provider.instanceId,
+        driver: provider.driver,
+        mode: permissionPick.mode,
+      });
+      if ("error" in plan) setError(plan.error);
+      else {
+        void run(() =>
+          mutateProviderInstance({
+            environmentId,
+            input: { patch: {}, providerInstanceMutation: plan.mutation },
+          }),
+        );
+      }
+      return;
+    }
     if (id === "signOut") signOut();
     // iOS keeps a disabled submenu's children selectable, so sign-in guards here too.
     else if (signInDisabled) return;
@@ -330,7 +369,16 @@ function ProviderAccount({
     } else if (id.startsWith("method:")) startSignIn(id.slice("method:".length));
     else if (id === "change") startSignIn();
   }
+  const permissionsAction = buildProviderDefaultPermissionsMenuAction({
+    instanceId: provider.instanceId,
+    currentMode: instance?.defaultRuntimeMode,
+    environmentDefaultMode: environment.serverConfig.settings.defaultRuntimeMode,
+    supportedRuntimeModes: provider.supportedRuntimeModes,
+    policy: environment.serverConfig.managedPolicy,
+    disabled: pending,
+  });
   const accountActions: MenuAction[] = [
+    permissionsAction,
     ...removeActions,
     ...(canSignIn
       ? [
@@ -361,20 +409,39 @@ function ProviderAccount({
         ]
       : []),
   ];
+  const permissionsBadge = instance?.defaultRuntimeMode
+    ? runtimeModeLabel(instance.defaultRuntimeMode)
+    : undefined;
+  const statusWithPermissions = [status, permissionsBadge].filter(Boolean).join(" · ");
   const trailing = pending ? (
     <View className="h-11 w-11 items-center justify-center">
       <AppActivityIndicator colorClassName="accent-icon" />
     </View>
   ) : needsExternalSetup && provider.setup?.documentationUrl ? (
-    <ControlPill
-      variant="pill"
-      label={gt("Docs")}
-      onPress={() => {
-        void tryOpenExternalUrl(provider.setup!.documentationUrl!).then((opened) => {
-          if (!opened) setError(gt("Could not open the provider docs."));
-        });
-      }}
-    />
+    <View className="flex-row items-center gap-2">
+      <ControlPill
+        variant="pill"
+        label={gt("Docs")}
+        onPress={() => {
+          void tryOpenExternalUrl(provider.setup!.documentationUrl!).then((opened) => {
+            if (!opened) setError(gt("Could not open the provider docs."));
+          });
+        }}
+      />
+      <Menu
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={gt("{provider} account options", { provider: name })}
+        title={name}
+        actions={[permissionsAction]}
+        onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
+      >
+        <ControlPill
+          icon="ellipsis"
+          accessibilityLabel={gt("{provider} account options", { provider: name })}
+        />
+      </Menu>
+    </View>
   ) : active && state?.flowId ? (
     <ControlPill
       variant="pill"
@@ -400,33 +467,77 @@ function ProviderAccount({
       />
     </Menu>
   ) : canSignIn && !signedIn && methodActions.length > 1 && !signInDisabled ? (
+    <View className="flex-row items-center gap-2">
+      <Menu
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={gt("Sign in to {provider}", { provider: name })}
+        title={gt("Sign in with")}
+        actions={[...methodActions, ...removeActions]}
+        onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
+      >
+        <ControlPill
+          variant="primary"
+          label={gt("Sign in")}
+          accessibilityLabel={gt("Sign in to {provider}", { provider: name })}
+        />
+      </Menu>
+      <Menu
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={gt("{provider} account options", { provider: name })}
+        title={name}
+        actions={[permissionsAction]}
+        onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
+      >
+        <ControlPill
+          icon="ellipsis"
+          accessibilityLabel={gt("{provider} account options", { provider: name })}
+        />
+      </Menu>
+    </View>
+  ) : canSignIn && !signedIn ? (
+    <View className="flex-row items-center gap-2">
+      <ControlPill
+        variant="primary"
+        label={usesCredentials ? gt("Connect") : gt("Sign in")}
+        accessibilityLabel={
+          usesCredentials
+            ? gt("Connect to {provider}", { provider: name })
+            : gt("Sign in to {provider}", { provider: name })
+        }
+        disabled={signInDisabled}
+        onPress={() => startSignIn()}
+      />
+      <Menu
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={gt("{provider} account options", { provider: name })}
+        title={name}
+        actions={[permissionsAction]}
+        onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
+      >
+        <ControlPill
+          icon="ellipsis"
+          accessibilityLabel={gt("{provider} account options", { provider: name })}
+        />
+      </Menu>
+    </View>
+  ) : (
     <Menu
       accessible
       accessibilityRole="button"
-      accessibilityLabel={gt("Sign in to {provider}", { provider: name })}
-      title={gt("Sign in with")}
-      actions={[...methodActions, ...removeActions]}
+      accessibilityLabel={gt("{provider} account options", { provider: name })}
+      title={name}
+      actions={[permissionsAction]}
       onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
     >
       <ControlPill
-        variant="primary"
-        label={gt("Sign in")}
-        accessibilityLabel={gt("Sign in to {provider}", { provider: name })}
+        icon="ellipsis"
+        accessibilityLabel={gt("{provider} account options", { provider: name })}
       />
     </Menu>
-  ) : canSignIn && !signedIn ? (
-    <ControlPill
-      variant="primary"
-      label={usesCredentials ? gt("Connect") : gt("Sign in")}
-      accessibilityLabel={
-        usesCredentials
-          ? gt("Connect to {provider}", { provider: name })
-          : gt("Sign in to {provider}", { provider: name })
-      }
-      disabled={signInDisabled}
-      onPress={() => startSignIn()}
-    />
-  ) : null;
+  );
   return (
     <View className={divider ? "border-t border-border-subtle" : undefined}>
       <View
@@ -436,7 +547,12 @@ function ProviderAccount({
             : "min-h-16 flex-row items-center gap-3 px-4 py-3"
         }
       >
-        <ProviderAccountSummary key={email} name={name} status={status} email={email} />
+        <ProviderAccountSummary
+          key={email}
+          name={name}
+          status={statusWithPermissions}
+          email={email}
+        />
         {trailing}
       </View>
       {interaction?.type === "deviceCode" ||
@@ -583,5 +699,106 @@ function ProviderAccountSummary({
     >
       {content}
     </Pressable>
+  );
+}
+
+function ProviderPermissionsRow({
+  environment,
+  provider,
+}: {
+  readonly environment: SettingsTarget;
+  readonly provider: ServerProvider;
+}) {
+  const gt = useGT();
+  const mutateProviderInstance = useAtomCommand(serverEnvironment.mutateProviderInstance, {
+    reportFailure: false,
+    reportDefect: false,
+  });
+  const pendingRef = useRef(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const instance = environment.serverConfig.settings.providerInstances[provider.instanceId];
+  const name = provider.displayName ?? provider.driver;
+  const permissionsAction = buildProviderDefaultPermissionsMenuAction({
+    instanceId: provider.instanceId,
+    currentMode: instance?.defaultRuntimeMode,
+    environmentDefaultMode: environment.serverConfig.settings.defaultRuntimeMode,
+    supportedRuntimeModes: provider.supportedRuntimeModes,
+    policy: environment.serverConfig.managedPolicy,
+    disabled: pending,
+  });
+  const status = [
+    provider.installed ? null : gt("Not installed"),
+    instance?.defaultRuntimeMode
+      ? runtimeModeLabel(instance.defaultRuntimeMode)
+      : gt("Default ({mode})", {
+          mode: runtimeModeLabel(environment.serverConfig.settings.defaultRuntimeMode),
+        }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <View className="border-t border-border-subtle">
+      <View className="min-h-16 flex-row items-center gap-3 px-4 py-3">
+        <ProviderAccountSummary name={name} status={status} email={undefined} />
+        {pending ? (
+          <View className="h-11 w-11 items-center justify-center">
+            <AppActivityIndicator colorClassName="accent-icon" />
+          </View>
+        ) : (
+          <Menu
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={gt("{provider} options", { provider: name })}
+            title={name}
+            actions={[permissionsAction]}
+            onPressAction={({ nativeEvent }) => {
+              if (pendingRef.current) return;
+              const permissionPick = parseProviderDefaultPermissionsMenuAction(nativeEvent.event);
+              if (!permissionPick.matched) return;
+              const plan = planProviderDefaultRuntimeModeMutation({
+                providerInstances: environment.serverConfig.settings.providerInstances,
+                policy: environment.serverConfig.managedPolicy,
+                instanceId: provider.instanceId,
+                driver: provider.driver,
+                mode: permissionPick.mode,
+              });
+              if ("error" in plan) {
+                setError(plan.error);
+                return;
+              }
+              pendingRef.current = true;
+              setPending(true);
+              setError(null);
+              void mutateProviderInstance({
+                environmentId: environment.environmentId,
+                input: { patch: {}, providerInstanceMutation: plan.mutation },
+              }).then((result) => {
+                pendingRef.current = false;
+                setPending(false);
+                if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+                  const failure = squashAtomCommandFailure(result);
+                  setError(
+                    failure instanceof Error
+                      ? (errorDisplayMessage(failure, m) ?? failure.message)
+                      : gt("Could not update provider settings."),
+                  );
+                }
+              });
+            }}
+          >
+            <ControlPill
+              icon="ellipsis"
+              accessibilityLabel={gt("{provider} options", { provider: name })}
+            />
+          </Menu>
+        )}
+      </View>
+      {error ? (
+        <Text accessibilityRole="alert" className="px-4 pb-3 text-danger-foreground">
+          {error}
+        </Text>
+      ) : null}
+    </View>
   );
 }

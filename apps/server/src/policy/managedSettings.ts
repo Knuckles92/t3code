@@ -195,7 +195,7 @@ interface Lock extends Entry {
   readonly decodedValue: unknown;
 }
 
-/** Locked paths as stored in the top level and in each project's overrides of `encoded`. */
+/** Locked paths as stored in the top level, each project's overrides, and provider instances. */
 const lockTargets = (encoded: unknown, entry: Entry): ReadonlyArray<Segments> => {
   const [head] = entry.segments;
   if (head === undefined || !PROJECT_OVERRIDE_KEYS.has(head)) return [entry.segments];
@@ -205,7 +205,20 @@ const lockTargets = (encoded: unknown, entry: Entry): ReadonlyArray<Segments> =>
         .filter(([, overrides]) => isRecord(overrides) && overrides[head] !== undefined)
         .map(([projectId]) => ["projectSettingsOverrides", projectId, ...entry.segments])
     : [];
-  return [entry.segments, ...projectTargets];
+  const providerTargets =
+    entry.segments.length === 1 && head === "defaultRuntimeMode"
+      ? (() => {
+          const instances = getPath(encoded, ["providerInstances"]);
+          return isRecord(instances)
+            ? Object.entries(instances)
+                .filter(
+                  ([, instance]) => isRecord(instance) && instance.defaultRuntimeMode !== undefined,
+                )
+                .map(([instanceId]) => ["providerInstances", instanceId, "defaultRuntimeMode"])
+            : [];
+        })()
+      : [];
+  return [entry.segments, ...projectTargets, ...providerTargets];
 };
 
 /**
@@ -223,7 +236,16 @@ const clampDefaultRuntimeModes = (
       overrides.defaultRuntimeMode !== undefined &&
       isRuntimeModeAbove(overrides.defaultRuntimeMode, ceiling),
   );
-  if (!isRuntimeModeAbove(settings.defaultRuntimeMode, ceiling) && projectsAbove.length === 0) {
+  const providersAbove = Object.entries(settings.providerInstances).filter(
+    ([, instance]) =>
+      instance.defaultRuntimeMode !== undefined &&
+      isRuntimeModeAbove(instance.defaultRuntimeMode, ceiling),
+  );
+  if (
+    !isRuntimeModeAbove(settings.defaultRuntimeMode, ceiling) &&
+    projectsAbove.length === 0 &&
+    providersAbove.length === 0
+  ) {
     return settings;
   }
   return {
@@ -231,15 +253,30 @@ const clampDefaultRuntimeModes = (
     defaultRuntimeMode: isRuntimeModeAbove(settings.defaultRuntimeMode, ceiling)
       ? ceiling
       : settings.defaultRuntimeMode,
-    projectSettingsOverrides: {
-      ...settings.projectSettingsOverrides,
-      ...Object.fromEntries(
-        projectsAbove.map(([projectId, overrides]) => [
-          projectId,
-          { ...overrides, defaultRuntimeMode: ceiling },
-        ]),
-      ),
-    },
+    projectSettingsOverrides:
+      projectsAbove.length === 0
+        ? settings.projectSettingsOverrides
+        : {
+            ...settings.projectSettingsOverrides,
+            ...Object.fromEntries(
+              projectsAbove.map(([projectId, overrides]) => [
+                projectId,
+                { ...overrides, defaultRuntimeMode: ceiling },
+              ]),
+            ),
+          },
+    providerInstances:
+      providersAbove.length === 0
+        ? settings.providerInstances
+        : {
+            ...settings.providerInstances,
+            ...Object.fromEntries(
+              providersAbove.map(([instanceId, instance]) => [
+                instanceId,
+                { ...instance, defaultRuntimeMode: ceiling },
+              ]),
+            ),
+          },
   };
 };
 
@@ -404,6 +441,17 @@ export function makeManagedSettings(
     return {
       _tag: "Invalid",
       reason: `"defaultRuntimeMode" is above "limits.maxRuntimeMode"`,
+    };
+  }
+  const providerRuntimeModeAbove = Object.entries(decoded.value.providerInstances).find(
+    ([, instance]) =>
+      instance.defaultRuntimeMode !== undefined &&
+      isRuntimeModeAbove(instance.defaultRuntimeMode, maxRuntimeMode),
+  );
+  if (providerRuntimeModeAbove !== undefined) {
+    return {
+      _tag: "Invalid",
+      reason: `"providerInstances.${providerRuntimeModeAbove[0]}.defaultRuntimeMode" is above "limits.maxRuntimeMode"`,
     };
   }
 

@@ -373,7 +373,9 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             description={
               isProjectScope
                 ? gt("Permissions for new threads in this project.")
-                : gt("Default permissions for new threads. Projects can override them.")
+                : gt(
+                    "Default permissions for new threads. Providers and projects can override them.",
+                  )
             }
             resetAction={
               settings.defaultRuntimeMode !== DEFAULT_SERVER_SETTINGS.defaultRuntimeMode ? (

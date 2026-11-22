@@ -5,6 +5,7 @@ import {
 } from "@t3tools/client-runtime/environment";
 import {
   DEFAULT_SERVER_SETTINGS,
+  resolveDefaultRuntimeMode,
   type ScopedProjectRef,
   type T3ProjectFile,
   type ThreadId,
@@ -225,7 +226,15 @@ export function createNewThreadHandler(router: AnyRouter) {
     const projectDefaultModelSelection = fallbackResolution.fallback
       ? fallbackResolution.selection
       : configuredDefaultModelSelection;
-    const defaultRuntimeMode = projectSettings.settings.defaultRuntimeMode;
+    const initialProviderInstanceId =
+      projectDefaultModelSelection?.instanceId ??
+      carryModelSelection?.instanceId ??
+      useComposerDraftStore.getState().stickyActiveProvider;
+    const defaultRuntimeMode = resolveDefaultRuntimeMode(
+      targetServerSettings,
+      project?.id ?? null,
+      initialProviderInstanceId,
+    );
     const resolveModelSelectionOverride = (destinationDraftId: DraftId) =>
       resolveNewThreadModelSelectionOverride({
         projectDefaultSelection: projectDefaultModelSelection ?? null,

@@ -27,6 +27,7 @@ import {
   type ProjectId,
   type ProviderInstanceConfig,
   type ProviderInstanceId,
+  type RuntimeMode,
   type ServerProvider,
   resolveEnvironmentMachineKind,
   resolveProjectProviderInstanceEnabled,
@@ -996,6 +997,7 @@ export function EnvironmentProviderSettings({
         selected={mode === "list" && selectedRow?.instanceId === row.instanceId}
         readOnly={readOnly}
         canWriteSettings={canWriteSettings}
+        defaultRuntimeMode={settings.defaultRuntimeMode}
         liveProvider={serverProviders.find((candidate) => candidate.instanceId === row.instanceId)}
         isUpdateDispatching={updatingProviderInstanceIds.has(row.instanceId)}
         showProjectOverride={showProjectOverride}
@@ -1299,6 +1301,7 @@ function ProviderInstanceRow({
   selected,
   readOnly,
   canWriteSettings,
+  defaultRuntimeMode,
   liveProvider,
   isUpdateDispatching,
   showProjectOverride,
@@ -1319,6 +1322,7 @@ function ProviderInstanceRow({
   readonly selected: boolean;
   readonly readOnly: boolean;
   readonly canWriteSettings: boolean;
+  readonly defaultRuntimeMode: RuntimeMode;
   readonly liveProvider: ServerProvider | undefined;
   readonly isUpdateDispatching: boolean;
   readonly showProjectOverride: boolean;
@@ -1395,6 +1399,7 @@ function ProviderInstanceRow({
         ) : undefined
       }
       canWriteSettings={canWriteSettings}
+      defaultRuntimeMode={defaultRuntimeMode}
       setup={
         mode === "editor" && driver === "antigravity" ? (
           <ProviderSetupSection

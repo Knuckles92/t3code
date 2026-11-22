@@ -85,6 +85,7 @@ import {
   type ScopedThreadRef,
   type ThreadId,
   ProviderInteractionMode,
+  resolveDefaultRuntimeMode,
   resolveIdleCompaction,
   RuntimeMode,
 } from "@t3tools/contracts";
@@ -1057,12 +1058,6 @@ export default function ChatView(props: ChatViewProps) {
   const [, setThreadErrorBannerDismissTick] = useState(0);
   const threadErrorIsServerRuntimeError =
     localServerError === null && visibleThreadError === serverRuntime?.lastError;
-  const defaultRuntimeMode = resolveProjectSettings(settings, activeThread?.projectId ?? null)
-    .settings.defaultRuntimeMode;
-  const runtimeMode =
-    composerRuntimeMode ??
-    (isServerThread ? activeThread?.runtimeMode : undefined) ??
-    defaultRuntimeMode;
   const isLocalDraftThread = !isServerThread && localDraftThread !== undefined;
   const canCheckoutPullRequestIntoThread = canWriteSourceControl && isLocalDraftThread;
   const activeThreadId = activeThread?.id ?? null;
@@ -1448,6 +1443,18 @@ export default function ChatView(props: ChatViewProps) {
   const selectedProvider = selectedProviderEntry?.driverKind ?? requestedDriverKind;
   const activeProviderInstanceId = selectedProviderEntry?.instanceId ?? null;
   const activeProviderStatus = selectedProviderEntry?.snapshot ?? null;
+  const defaultRuntimeMode = resolveDefaultRuntimeMode(
+    settings,
+    activeThread?.projectId ?? null,
+    activeProviderInstanceId,
+  );
+  const runtimeMode =
+    composerRuntimeMode ??
+    (isServerThread ? activeThread?.runtimeMode : undefined) ??
+    defaultRuntimeMode;
+  const resolveFanoutRuntimeMode = (instanceId: ProviderInstanceId): RuntimeMode =>
+    composerRuntimeMode ??
+    resolveDefaultRuntimeMode(settings, activeThread?.projectId ?? null, instanceId);
   const activeUsageModel =
     [
       composerModelSelectionApplies ? composerSelectedModelSelection : null,
@@ -3144,6 +3151,7 @@ export default function ChatView(props: ChatViewProps) {
     isGitRepo,
     phase,
     runtimeMode,
+    resolveTargetRuntimeMode: resolveFanoutRuntimeMode,
     sendEnvMode,
     worktreeRepositories,
     startFromOrigin,

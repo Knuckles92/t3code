@@ -1,7 +1,7 @@
 import { msg } from "gt-react";
 import { m } from "~/i18n/messages";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
-import type { UnifiedSettings } from "@t3tools/contracts";
+import { resolveDefaultRuntimeMode, type UnifiedSettings } from "@t3tools/contracts";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
@@ -115,11 +115,15 @@ export function usePullRequestDraftThread(input: PullRequestDraftThreadInput) {
 
     const nextDraftId = newDraftId();
     const nextThreadId = newThreadId();
+    const activeProjectDefaults = resolveProjectSettings(settings, activeProject.id, activeProject);
     setLogicalProjectDraftThreadId(logicalProjectKey, activeProjectRef, nextDraftId, {
       threadId: nextThreadId,
       createdAt: new Date().toISOString(),
-      runtimeMode: resolveProjectSettings(settings, activeProject.id, activeProject).settings
-        .defaultRuntimeMode,
+      runtimeMode: resolveDefaultRuntimeMode(
+        settings,
+        activeProject.id,
+        activeProjectDefaults.settings.defaultModelSelection?.instanceId,
+      ),
       interactionMode: DEFAULT_INTERACTION_MODE,
       ...input,
     });

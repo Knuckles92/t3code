@@ -2709,10 +2709,16 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         const fs = yield* FileSystem.FileSystem;
         const raised = ProjectId.make("project-raised");
         const supervised = ProjectId.make("project-supervised");
+        const codex = ProviderInstanceId.make("codex");
+        const claude = ProviderInstanceId.make("claudeAgent");
         yield* fs.writeFileString(
           config.settingsPath,
           JSON.stringify({
             defaultRuntimeMode: "auto",
+            providerInstances: {
+              [codex]: { driver: "codex", defaultRuntimeMode: "full-access" },
+              [claude]: { driver: "claudeAgent", defaultRuntimeMode: "approval-required" },
+            },
             projectSettingsOverrides: {
               [raised]: { defaultRuntimeMode: "full-access" },
               [supervised]: { defaultRuntimeMode: "approval-required" },
@@ -2722,6 +2728,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
 
         const settings = yield* service.getSettings;
         assert.equal(settings.defaultRuntimeMode, "auto-accept-edits");
+        assert.equal(settings.providerInstances[codex]?.defaultRuntimeMode, "auto-accept-edits");
+        assert.equal(settings.providerInstances[claude]?.defaultRuntimeMode, "approval-required");
         assert.equal(
           settings.projectSettingsOverrides[raised]?.defaultRuntimeMode,
           "auto-accept-edits",
@@ -2734,6 +2742,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         yield* service.updateSettings({ defaultAutoPull: true });
         const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
         assert.equal(stored.defaultRuntimeMode, "auto");
+        assert.equal(stored.providerInstances[codex].defaultRuntimeMode, "full-access");
         assert.equal(stored.projectSettingsOverrides[raised].defaultRuntimeMode, "full-access");
       }).pipe(
         Effect.provide(
@@ -2741,6 +2750,64 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
             schemaVersion: 1,
             organization: "Example Corp",
             limits: { maxRuntimeMode: "auto-accept-edits" },
+          }),
+        ),
+      ),
+    );
+
+    it.effect("enforces a locked defaultRuntimeMode across provider instance overrides", () =>
+      Effect.gen(function* () {
+        const service = yield* ServerSettingsModule.ServerSettingsService;
+        const config = yield* ServerConfig.ServerConfig;
+        const fs = yield* FileSystem.FileSystem;
+        const codex = ProviderInstanceId.make("codex");
+        yield* fs.writeFileString(
+          config.settingsPath,
+          JSON.stringify({
+            providerInstances: {
+              [codex]: { driver: "codex", defaultRuntimeMode: "full-access" },
+            },
+          }),
+        );
+
+        const settings = yield* service.getSettings;
+        assert.equal(settings.defaultRuntimeMode, "approval-required");
+        assert.equal(settings.providerInstances[codex]?.defaultRuntimeMode, "approval-required");
+
+        const refused = yield* service
+          .updateProviderInstance({
+            operation: "upsert",
+            instanceId: codex,
+            instance: {
+              driver: ProviderDriverKind.make("codex"),
+              defaultRuntimeMode: "auto",
+            },
+          })
+          .pipe(Effect.flip);
+        assert.equal(refused.operation, "write-managed-setting");
+        assert.equal(refused.managedSetting, "defaultRuntimeMode");
+
+        // Echoing the locked value on an unrelated edit succeeds and keeps the stored value on disk.
+        yield* service.updateProviderInstance({
+          operation: "upsert",
+          instanceId: codex,
+          instance: {
+            driver: ProviderDriverKind.make("codex"),
+            displayName: "Work Codex",
+            defaultRuntimeMode: "approval-required",
+          },
+        });
+        const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
+        assert.equal(stored.providerInstances[codex].displayName, "Work Codex");
+        assert.equal(stored.providerInstances[codex].defaultRuntimeMode, "full-access");
+      }).pipe(
+        Effect.provide(
+          layerServerSettings({
+            schemaVersion: 1,
+            organization: "Example Corp",
+            settings: {
+              defaultRuntimeMode: { value: "approval-required", locked: true },
+            },
           }),
         ),
       ),

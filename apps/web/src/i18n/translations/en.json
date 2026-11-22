@@ -9160,7 +9160,6 @@
   "9db5fe9e87e35e10": "Fallback model not saved",
   "b0c77717b7d7b4a3": "New threads",
   "3dee662c2b837a30": "Permissions for new threads in this project.",
-  "b886096e397a9d88": "Default permissions for new threads. Projects can override them.",
   "367269c9abaa3d2c": "Reset default permissions to default",
   "369554d95bf3fc1e": "Default permissions",
   "abe5615aea30066d": "Automatically pull",
@@ -12989,5 +12988,14 @@
   "201490988858b511": "withdrawn by {by}",
   "99451a5d2d40440f": "Withdrawn by {by}.",
   "3ee30a50b70fffab": "Withdrawn by {by}: {reason}",
-  "92e129bf413a1220": "withdrawn"
+  "92e129bf413a1220": "withdrawn",
+  "d8aaf932f90429c4": "Move this command to the front of the queue ({shortcut})",
+  "425ab15036aec8a4": "Move this command to the front of the queue",
+  "d49e8fb40e7a1ac4": "Default permissions for new threads. Providers and projects can override them.",
+  "5740311f83eeb89f": "Permissions for new threads using this provider. Project overrides take precedence.",
+  "cd681d256157e999": "Reset {provider} default permissions to default",
+  "070fc265fa56c7c9": "{provider} default permissions",
+  "f62a0f447ff43e4f": "Use default ({mode})",
+  "0f1663b759c535db": "Inherit the general or project default ({mode}).",
+  "5acaf61225717fe3": "Use default"
 }

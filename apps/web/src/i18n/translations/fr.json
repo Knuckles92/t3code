@@ -9152,7 +9152,6 @@
   "9db5fe9e87e35e10": "Modèle de secours non enregistré",
   "b0c77717b7d7b4a3": "Nouveaux fils",
   "3dee662c2b837a30": "Autorisations des nouveaux fils de ce projet.",
-  "b886096e397a9d88": "Autorisations par défaut des nouveaux fils. Les projets peuvent les remplacer.",
   "367269c9abaa3d2c": "Réinitialiser les autorisations par défaut à la valeur par défaut",
   "369554d95bf3fc1e": "Autorisations par défaut",
   "abe5615aea30066d": "Pull automatique",
@@ -12980,5 +12979,14 @@
   "201490988858b511": "retirée par {by}",
   "99451a5d2d40440f": "Retirée par {by}.",
   "3ee30a50b70fffab": "Retirée par {by} : {reason}",
-  "92e129bf413a1220": "retirée"
+  "92e129bf413a1220": "retirée",
+  "d8aaf932f90429c4": "Placer cette commande en tête de la file d’attente ({shortcut})",
+  "425ab15036aec8a4": "Placer cette commande en tête de la file d’attente",
+  "d49e8fb40e7a1ac4": "Autorisations par défaut pour les nouveaux fils. Les fournisseurs et les projets peuvent les remplacer.",
+  "5740311f83eeb89f": "Autorisations pour les nouveaux fils utilisant ce fournisseur. Les remplacements de projet prévalent.",
+  "cd681d256157e999": "Réinitialiser les autorisations par défaut de {provider}",
+  "070fc265fa56c7c9": "Autorisations par défaut de {provider}",
+  "f62a0f447ff43e4f": "Utiliser la valeur par défaut ({mode})",
+  "0f1663b759c535db": "Hériter de la valeur par défaut générale ou du projet ({mode}).",
+  "5acaf61225717fe3": "Utiliser la valeur par défaut"
 }

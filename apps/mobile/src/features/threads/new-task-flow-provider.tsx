@@ -19,6 +19,7 @@ import {
   DEFAULT_PROVIDER_INTERACTION_MODE,
   MessageId,
   repositoryGroupingKeyOf,
+  resolveDefaultRuntimeMode,
   ThreadId,
 } from "@t3tools/contracts";
 import { threadContextsOutsideEnvironment } from "@t3tools/shared/composerContextReferences";
@@ -447,13 +448,7 @@ export function NewTaskFlowProvider(
   );
   const startFromOrigin =
     isGitRepo && (draftStartFromOrigin ?? projectSettings.settings.newWorktreesStartFromOrigin);
-  const defaultRuntimeMode = projectSettings.settings.defaultRuntimeMode;
   const managedPolicy = selectedEnvironmentServerConfig?.managedPolicy;
-  const runtimeMode = resolveNewThreadRuntimeMode(
-    selectedProjectDraft.runtimeMode,
-    defaultRuntimeMode,
-    managedPolicy,
-  );
 
   // Antigravity keeps unavailable selections so sign-out or a catalog change
   // cannot switch the user's model.
@@ -500,6 +495,18 @@ export function NewTaskFlowProvider(
   const selectedModelKey = selectedModel
     ? `${selectedModel.instanceId}:${selectedModel.model}`
     : null;
+  const defaultRuntimeMode = selectedEnvironmentServerConfig
+    ? resolveDefaultRuntimeMode(
+        selectedEnvironmentServerConfig.settings,
+        selectedProject?.id ?? null,
+        selectedModel?.instanceId,
+      )
+    : projectSettings.settings.defaultRuntimeMode;
+  const runtimeMode = resolveNewThreadRuntimeMode(
+    selectedProjectDraft.runtimeMode,
+    defaultRuntimeMode,
+    managedPolicy,
+  );
 
   const selectedModelOption =
     modelOptions.find(
@@ -824,7 +831,13 @@ export function NewTaskFlowProvider(
       modelSelection: draftModelSelection,
       runtimeMode: resolveNewThreadRuntimeMode(
         draft.runtimeMode,
-        defaultRuntimeMode,
+        selectedEnvironmentServerConfig
+          ? resolveDefaultRuntimeMode(
+              selectedEnvironmentServerConfig.settings,
+              selectedProject.id,
+              draftModelSelection.instanceId,
+            )
+          : defaultRuntimeMode,
         managedPolicy,
       ),
       interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,

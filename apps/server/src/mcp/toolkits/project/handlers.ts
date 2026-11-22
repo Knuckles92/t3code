@@ -6,6 +6,7 @@ import {
   OrchestratorMcpFailure,
   type OrchestrationV2ThreadLaunchWorkspaceStrategy,
   ProjectId,
+  resolveDefaultRuntimeMode,
   type TaskFolderError,
   type Project as ProjectRecord,
   type ServerProvider,
@@ -442,9 +443,10 @@ export const layer = McpToolAccess.toLayer(ProjectToolkit, {
           });
         let startedRuntimeMode =
           projectDefaults !== undefined && input.runtimeMode === undefined
-            ? yield* resolveRuntimeMode(runtimeMode, projectDefaults.defaultRuntimeMode).pipe(
-                Effect.orElseSucceed(() => runtimeMode),
-              )
+            ? yield* resolveRuntimeMode(
+                runtimeMode,
+                resolveDefaultRuntimeMode(projectDefaults, projectId, modelSelection.instanceId),
+              ).pipe(Effect.orElseSucceed(() => runtimeMode))
             : runtimeMode;
         if (!replaying) {
           const providers = yield* (yield* ProviderRegistry.ProviderRegistry).getProviders;

@@ -8,6 +8,7 @@ import {
   type Project,
   ProjectId,
   ProviderInstanceId,
+  resolveDefaultRuntimeMode,
   ThreadId,
 } from "@t3tools/contracts";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
@@ -300,17 +301,21 @@ const resolveAutoBootstrapWelcomeTargets = Effect.gen(function* () {
     if (existingThread === undefined) {
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       const settings = yield* serverSettings.getSettings;
+      const bootstrapModelSelection =
+        resolveProjectSettings(settings, project.id, project).settings.defaultModelSelection ??
+        threadModelSelection;
       const launched = yield* threadLaunch
         .launch({
           commandId: CommandId.make(yield* randomUUID),
           projectId: project.id,
           title: "New thread",
-          modelSelection:
-            resolveProjectSettings(settings, project.id, project).settings.defaultModelSelection ??
-            threadModelSelection,
+          modelSelection: bootstrapModelSelection,
           interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
-          runtimeMode: resolveProjectSettings(settings, project.id, project).settings
-            .defaultRuntimeMode,
+          runtimeMode: resolveDefaultRuntimeMode(
+            settings,
+            project.id,
+            bootstrapModelSelection.instanceId,
+          ),
           workspaceStrategy: { type: "root" },
           createdBy: "system",
           creationSource: "server",

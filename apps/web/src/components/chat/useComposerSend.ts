@@ -217,6 +217,7 @@ interface ComposerSendInput {
   readonly isGitRepo: boolean;
   readonly phase: SessionPhase;
   readonly runtimeMode: RuntimeMode;
+  readonly resolveTargetRuntimeMode?: ((instanceId: ProviderInstanceId) => RuntimeMode) | undefined;
   readonly sendEnvMode: DraftThreadEnvMode;
   /** Tracked repositories a new worktree takes; undefined leaves the choice to the server. */
   readonly worktreeRepositories: ReadonlyArray<{ readonly path: string }> | undefined;
@@ -320,6 +321,7 @@ export function useComposerSend(input: ComposerSendInput) {
     isGitRepo,
     phase,
     runtimeMode,
+    resolveTargetRuntimeMode,
     sendEnvMode,
     worktreeRepositories,
     startFromOrigin,
@@ -398,6 +400,7 @@ export function useComposerSend(input: ComposerSendInput) {
     composerRef,
     promptRef,
     runtimeMode,
+    resolveTargetRuntimeMode,
     startFromOrigin,
     worktreeRepositories,
     resetLocalDispatch,

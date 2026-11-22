@@ -9152,7 +9152,6 @@
   "9db5fe9e87e35e10": "Ausweichmodell nicht gespeichert",
   "b0c77717b7d7b4a3": "Neue Threads",
   "3dee662c2b837a30": "Berechtigungen für neue Threads in diesem Projekt.",
-  "b886096e397a9d88": "Standardberechtigungen für neue Threads. Projekte können sie überschreiben.",
   "367269c9abaa3d2c": "Standardberechtigungen auf Standard zurücksetzen",
   "369554d95bf3fc1e": "Standardberechtigungen",
   "abe5615aea30066d": "Automatisch pullen",
@@ -12980,5 +12979,14 @@
   "201490988858b511": "zurückgezogen von {by}",
   "99451a5d2d40440f": "Zurückgezogen von {by}.",
   "3ee30a50b70fffab": "Zurückgezogen von {by}: {reason}",
-  "92e129bf413a1220": "zurückgezogen"
+  "92e129bf413a1220": "zurückgezogen",
+  "d8aaf932f90429c4": "Diesen Befehl an den Anfang der Warteschlange verschieben ({shortcut})",
+  "425ab15036aec8a4": "Diesen Befehl an den Anfang der Warteschlange verschieben",
+  "d49e8fb40e7a1ac4": "Standardberechtigungen für neue Threads. Anbieter und Projekte können sie überschreiben.",
+  "5740311f83eeb89f": "Berechtigungen für neue Threads mit diesem Anbieter. Projekt-Überschreibungen haben Vorrang.",
+  "cd681d256157e999": "Standardberechtigungen für {provider} zurücksetzen",
+  "070fc265fa56c7c9": "Standardberechtigungen für {provider}",
+  "f62a0f447ff43e4f": "Standard verwenden ({mode})",
+  "0f1663b759c535db": "Allgemeine oder Projekt-Standardeinstellung übernehmen ({mode}).",
+  "5acaf61225717fe3": "Standard verwenden"
 }

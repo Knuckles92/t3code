@@ -53,6 +53,7 @@ import { ProjectToolkit } from "./tools.ts";
 const clientLaunchHarness = (input: {
   readonly runtimeModeCeiling: RuntimeMode;
   readonly defaultRuntimeMode?: RuntimeMode;
+  readonly providerInstances?: ServerSettings.ServerSettingsPatch["providerInstances"];
   readonly newWorktreesStartFromOrigin?: boolean;
   readonly defaultThreadEnvMode?: "local" | "worktree";
   readonly fallbackModel?: ModelSelection;
@@ -86,6 +87,9 @@ const clientLaunchHarness = (input: {
       ...(input.defaultRuntimeMode === undefined
         ? {}
         : { defaultRuntimeMode: input.defaultRuntimeMode }),
+      ...(input.providerInstances === undefined
+        ? {}
+        : { providerInstances: input.providerInstances }),
       ...(input.newWorktreesStartFromOrigin === undefined
         ? {}
         : { newWorktreesStartFromOrigin: input.newWorktreesStartFromOrigin }),
@@ -217,17 +221,26 @@ it.effect(
           readonly runtimeMode?: RuntimeMode;
           readonly targeted?: false;
           readonly overrideModel?: ModelSelection;
+          readonly providerInstances?: ServerSettings.ServerSettingsPatch["providerInstances"];
           readonly hostedAppUrl?: string;
           readonly refusedByCeiling?: true;
         },
       ) {
-        const { targeted, overrideModel, hostedAppUrl, refusedByCeiling, ...input } = params;
+        const {
+          targeted,
+          overrideModel,
+          providerInstances,
+          hostedAppUrl,
+          refusedByCeiling,
+          ...input
+        } = params;
         const launched: Array<ThreadLaunch.ThreadLaunchInput> = [];
         const { projectId, modelSelection, dependencies } = clientLaunchHarness({
           runtimeModeCeiling,
           defaultRuntimeMode,
           launched,
           ...(overrideModel === undefined ? {} : { overrideModel }),
+          ...(providerInstances === undefined ? {} : { providerInstances }),
           ...(hostedAppUrl === undefined ? {} : { hostedAppUrl }),
           ...(refusedByCeiling === undefined ? {} : { refusedByCeiling }),
         });
@@ -257,6 +270,17 @@ it.effect(
       expect(belowCeiling.launched[0]?.initialMessage?.senderThreadId).toBeUndefined();
       expect(belowCeiling.launched[0]?.generateTitle).toBeUndefined();
       expect(belowCeiling.launched[0]?.titleRenamed).toBe(true);
+
+      const providerOverride = yield* launchWith("full-access", "full-access", {
+        title: "Provider default",
+        providerInstances: {
+          [ProviderInstanceId.make("claudeAgent")]: {
+            driver: ProviderDriverKind.make("claudeAgent"),
+            defaultRuntimeMode: "auto-accept-edits",
+          },
+        },
+      });
+      expect(providerOverride.launched[0]?.runtimeMode).toBe("auto-accept-edits");
 
       const titled = yield* launchWith("full-access", "full-access", {
         title: "Fix",

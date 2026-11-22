@@ -28,6 +28,12 @@ import {
   planClaudeAccountSave,
   type ClaudeAccountDraft,
 } from "./claude-accounts";
+import {
+  buildProviderDefaultPermissionsMenuAction,
+  parseProviderDefaultPermissionsMenuAction,
+  planProviderDefaultRuntimeModeMutation,
+  runtimeModeLabel,
+} from "./provider-default-permissions";
 import type { SettingsTarget } from "./settings-environment-filter";
 
 function useProviderInstanceMutation(environment: SettingsTarget) {
@@ -73,7 +79,7 @@ export function ClaudeAccount({
 }) {
   const gt = useGT();
   const [editing, setEditing] = useState(false);
-  const { run, pending, error } = useProviderInstanceMutation(environment);
+  const { run, pending, error, setError } = useProviderInstanceMutation(environment);
   const instance = environment.serverConfig.settings.providerInstances[provider.instanceId];
   const configDir = claudeConfigDir(instance);
   const name = provider.displayName ?? "Claude";
@@ -92,7 +98,16 @@ export function ClaudeAccount({
       environment.serverConfig.managedPolicy,
       `providerInstances.${provider.instanceId}`,
     );
+  const permissionsAction = buildProviderDefaultPermissionsMenuAction({
+    instanceId: provider.instanceId,
+    currentMode: instance?.defaultRuntimeMode,
+    environmentDefaultMode: environment.serverConfig.settings.defaultRuntimeMode,
+    supportedRuntimeModes: provider.supportedRuntimeModes,
+    policy: environment.serverConfig.managedPolicy,
+    disabled: pending,
+  });
   const actions: MenuAction[] = [
+    permissionsAction,
     { id: "edit", title: gt("Edit"), image: "pencil" },
     ...(removable
       ? [
@@ -132,7 +147,13 @@ export function ClaudeAccount({
             {name}
           </Text>
           <Text textRole="footnote" className="text-foreground-muted" numberOfLines={2}>
-            {[status, configDir || gt("Default config folder")].filter(Boolean).join(" · ")}
+            {[
+              status,
+              configDir || gt("Default config folder"),
+              instance?.defaultRuntimeMode ? runtimeModeLabel(instance.defaultRuntimeMode) : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </Text>
         </View>
         {editing ? null : (
@@ -144,7 +165,18 @@ export function ClaudeAccount({
             actions={actions}
             onPressAction={({ nativeEvent }) => {
               if (pending) return;
-              if (nativeEvent.event === "edit") setEditing(true);
+              const permissionPick = parseProviderDefaultPermissionsMenuAction(nativeEvent.event);
+              if (permissionPick.matched) {
+                const plan = planProviderDefaultRuntimeModeMutation({
+                  providerInstances: environment.serverConfig.settings.providerInstances,
+                  policy: environment.serverConfig.managedPolicy,
+                  instanceId: provider.instanceId,
+                  driver: provider.driver,
+                  mode: permissionPick.mode,
+                });
+                if ("error" in plan) setError(plan.error);
+                else void run(plan.mutation);
+              } else if (nativeEvent.event === "edit") setEditing(true);
               else if (nativeEvent.event === "remove") remove();
             }}
           >

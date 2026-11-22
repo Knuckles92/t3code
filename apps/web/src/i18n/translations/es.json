@@ -9150,7 +9150,6 @@
   "9db5fe9e87e35e10": "No se guardó el modelo de respaldo",
   "b0c77717b7d7b4a3": "Nuevos hilos",
   "3dee662c2b837a30": "Permisos para los nuevos hilos de este proyecto.",
-  "b886096e397a9d88": "Permisos predeterminados para los nuevos hilos. Los proyectos pueden anularlos.",
   "367269c9abaa3d2c": "Restablecer los permisos predeterminados al valor predeterminado",
   "369554d95bf3fc1e": "Permisos predeterminados",
   "abe5615aea30066d": "Hacer pull automáticamente",
@@ -12975,5 +12974,14 @@
   "201490988858b511": "retirada por {by}",
   "99451a5d2d40440f": "Retirada por {by}.",
   "3ee30a50b70fffab": "Retirada por {by}: {reason}",
-  "92e129bf413a1220": "retirada"
+  "92e129bf413a1220": "retirada",
+  "d8aaf932f90429c4": "Mover este comando al principio de la cola ({shortcut})",
+  "425ab15036aec8a4": "Mover este comando al principio de la cola",
+  "d49e8fb40e7a1ac4": "Permisos predeterminados para nuevos hilos. Los proveedores y proyectos pueden sobrescribirlos.",
+  "5740311f83eeb89f": "Permisos para nuevos hilos con este proveedor. Las anulaciones del proyecto tienen prioridad.",
+  "cd681d256157e999": "Restablecer los permisos predeterminados de {provider}",
+  "070fc265fa56c7c9": "Permisos predeterminados de {provider}",
+  "f62a0f447ff43e4f": "Usar predeterminado ({mode})",
+  "0f1663b759c535db": "Heredar el valor predeterminado general o del proyecto ({mode}).",
+  "5acaf61225717fe3": "Usar predeterminado"
 }

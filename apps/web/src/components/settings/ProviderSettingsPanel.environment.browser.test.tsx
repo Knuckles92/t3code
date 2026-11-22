@@ -593,6 +593,69 @@ describe("EnvironmentProviderSettings instance removal", () => {
       }),
     );
   });
+
+  it("saves and resets a provider instance's default permissions mode", async () => {
+    await setup();
+    state.settings = {
+      ...DEFAULT_UNIFIED_SETTINGS,
+      defaultRuntimeMode: "full-access",
+      providerInstances: {
+        [codexId]: { driver: ProviderDriverKind.make("codex"), enabled: true },
+      },
+    };
+    await using _screen = await render(panel({ targetInstanceId: codexId }));
+
+    const trigger = page.getByRole("combobox", { name: "Codex default permissions" });
+    await expect.element(trigger).toHaveTextContent("Use default (Full access)");
+
+    await userEvent.click(trigger);
+    await userEvent.click(page.getByRole("option", { name: /Supervised/ }));
+    await vi.waitFor(() =>
+      expect(state.mutateProviderInstance).toHaveBeenCalledWith(
+        {
+          operation: "upsert",
+          instanceId: codexId,
+          instance: {
+            driver: ProviderDriverKind.make("codex"),
+            enabled: true,
+            defaultRuntimeMode: "approval-required",
+          },
+        },
+        {},
+      ),
+    );
+
+    state.mutateProviderInstance.mockClear();
+    state.settings = {
+      ...state.settings,
+      providerInstances: {
+        [codexId]: {
+          driver: ProviderDriverKind.make("codex"),
+          enabled: true,
+          defaultRuntimeMode: "approval-required",
+        },
+      },
+    };
+    await _screen.rerender(panel({ targetInstanceId: codexId }));
+    await expect.element(trigger).toHaveTextContent("Supervised");
+
+    await userEvent.click(
+      page.getByRole("button", { name: "Reset Codex default permissions to default" }),
+    );
+    await vi.waitFor(() =>
+      expect(state.mutateProviderInstance).toHaveBeenCalledWith(
+        {
+          operation: "upsert",
+          instanceId: codexId,
+          instance: {
+            driver: ProviderDriverKind.make("codex"),
+            enabled: true,
+          },
+        },
+        {},
+      ),
+    );
+  });
 });
 
 describe("EnvironmentProviderSettings health check interval", () => {

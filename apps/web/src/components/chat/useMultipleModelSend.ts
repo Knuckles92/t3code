@@ -4,6 +4,7 @@ import { m } from "~/i18n/messages";
 import {
   type EnvironmentId,
   type ModelSelection,
+  type ProviderInstanceId,
   type RuntimeMode,
   type ThreadId,
 } from "@t3tools/contracts";
@@ -54,6 +55,7 @@ interface MultipleModelSendInput {
   readonly composerRef: ComposerHandleRef;
   readonly promptRef: { current: string };
   readonly runtimeMode: RuntimeMode;
+  readonly resolveTargetRuntimeMode?: ((instanceId: ProviderInstanceId) => RuntimeMode) | undefined;
   readonly startFromOrigin: boolean;
   readonly worktreeRepositories: ReadonlyArray<{ readonly path: string }> | undefined;
   readonly resetLocalDispatch: ReturnType<typeof useLocalDispatchState>["resetLocalDispatch"];
@@ -75,6 +77,7 @@ export function useMultipleModelSend(input: MultipleModelSendInput) {
     composerRef,
     promptRef,
     runtimeMode,
+    resolveTargetRuntimeMode,
     startFromOrigin,
     worktreeRepositories,
     resetLocalDispatch,
@@ -172,6 +175,8 @@ export function useMultipleModelSend(input: MultipleModelSendInput) {
             model: target.selection.model,
             uncertainSubmissions: uncertainSubmissionsRef.current,
             start: (targetThreadId) => {
+              const targetRuntimeMode =
+                resolveTargetRuntimeMode?.(target.selection.instanceId) ?? runtimeMode;
               return startThreadTurn({
                 environmentId,
                 input: {
@@ -187,14 +192,14 @@ export function useMultipleModelSend(input: MultipleModelSendInput) {
                   },
                   modelSelection: target.selection,
                   titleSeed: title,
-                  runtimeMode,
+                  runtimeMode: targetRuntimeMode,
                   interactionMode: DEFAULT_INTERACTION_MODE,
                   bootstrap: {
                     createThread: {
                       projectId: project.id,
                       title,
                       modelSelection: target.selection,
-                      runtimeMode,
+                      runtimeMode: targetRuntimeMode,
                       interactionMode: DEFAULT_INTERACTION_MODE,
                       branch,
                       worktreePath: null,

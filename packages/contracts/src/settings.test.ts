@@ -17,6 +17,7 @@ import {
   idleCompactionPatch,
   PROJECT_SCOPED_SERVER_SETTING_KEYS,
   requiredScopesForProjectMutation,
+  resolveDefaultRuntimeMode,
   resolveIdleCompaction,
   resolveProjectProviderInstanceEnabled,
   resolveProviderInstanceEnabled,
@@ -553,5 +554,31 @@ describe("server model preferences", () => {
     const input = { favorites: [], providerModelPreferences: {} };
     expect(encodeServerSettings(decodeServerSettings(input))).toMatchObject(input);
     expect(decodeServerSettingsPatch(input)).toEqual(input);
+  });
+});
+
+describe("resolveDefaultRuntimeMode", () => {
+  it("resolves project override, then provider override, then environment default", () => {
+    const projectA = ProjectId.make("project-a");
+    const projectB = ProjectId.make("project-b");
+    const codex = ProviderInstanceId.make("codex");
+    const claude = ProviderInstanceId.make("claudeAgent");
+    const settings = decodeServerSettings({
+      defaultRuntimeMode: "full-access",
+      providerInstances: {
+        [codex]: { driver: "codex", defaultRuntimeMode: "auto" },
+        [claude]: { driver: "claudeAgent" },
+      },
+      projectSettingsOverrides: {
+        [projectA]: { defaultRuntimeMode: "approval-required" },
+      },
+    });
+
+    expect(settings.providerInstances[codex]?.defaultRuntimeMode).toBe("auto");
+    expect(resolveDefaultRuntimeMode(settings, null, codex)).toBe("auto");
+    expect(resolveDefaultRuntimeMode(settings, projectB, codex)).toBe("auto");
+    expect(resolveDefaultRuntimeMode(settings, projectB, claude)).toBe("full-access");
+    expect(resolveDefaultRuntimeMode(settings, projectB, null)).toBe("full-access");
+    expect(resolveDefaultRuntimeMode(settings, projectA, codex)).toBe("approval-required");
   });
 });

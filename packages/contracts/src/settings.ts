@@ -1699,6 +1699,30 @@ export const resolveProjectProviderInstanceEnabled = (
     : isUnconfiguredDefaultInstanceEnabled(instanceId);
 };
 
+/**
+ * Effective default permissions for a new thread: a project's explicit override wins, then the
+ * chosen provider instance's override, then the environment default.
+ */
+export const resolveDefaultRuntimeMode = (
+  settings: Pick<
+    ServerSettings,
+    "defaultRuntimeMode" | "providerInstances" | "projectSettingsOverrides"
+  >,
+  projectId: ProjectId | null,
+  instanceId?: ProviderInstanceId | null,
+): RuntimeMode => {
+  const projectOverride =
+    projectId === null
+      ? undefined
+      : settings.projectSettingsOverrides[projectId]?.defaultRuntimeMode;
+  if (projectOverride !== undefined) return projectOverride;
+  const providerOverride =
+    instanceId != null && Object.hasOwn(settings.providerInstances, instanceId)
+      ? settings.providerInstances[instanceId]?.defaultRuntimeMode
+      : undefined;
+  return providerOverride ?? settings.defaultRuntimeMode;
+};
+
 /** The text generator a selection names, if any; it takes precedence over a provider instance. */
 export const textGeneratorForSelection = (
   settings: Pick<ServerSettings, "textGenerators">,

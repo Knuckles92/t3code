@@ -18,7 +18,12 @@ import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
 import { Fragment, useState, type ReactElement, type ReactNode } from "react";
 import { T, useGT, useMessages, Var } from "gt-react";
+import { managedRuntimeModeDenial } from "@t3tools/client-runtime/contract-labels";
 import {
+  DEFAULT_RUNTIME_MODE,
+  disallowedProviderMessage,
+  isManagedDriverAllowed,
+  isManagedSettingPath,
   isProviderDriverKind,
   resolveProviderInstanceEnabled,
   type ProviderInstanceConfig,
@@ -28,6 +33,7 @@ import {
   type EnvironmentId,
   type ProjectId,
   type ProviderDriverKind,
+  type RuntimeMode,
   type SecretReference,
   type ServerProvider,
   type ServerProviderModel,
@@ -47,10 +53,11 @@ import { Button } from "../ui/button";
 import { DraftInput } from "../ui/draft-input";
 import { SecretSourceInput, type SecretSource } from "./SecretSourceInput";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { ManagedControl, ManagedNotice } from "../ManagedPolicy";
 import { managedInstanceLocks, useManagedPolicy } from "../../state/managedPolicy";
-import { disallowedProviderMessage, isManagedDriverAllowed } from "@t3tools/contracts";
+import { resolveCompatibleRuntimeMode, runtimeModeConfig } from "../chat/runtimeModeConfig";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type {
@@ -713,6 +720,7 @@ interface ProviderInstanceCardProps {
   readonly onSelect?: (() => void) | undefined;
   readonly readOnly?: boolean | undefined;
   readonly canWriteSettings?: boolean;
+  readonly defaultRuntimeMode?: RuntimeMode | undefined;
   readonly onUpdate: (nextInstance: ProviderInstanceConfig) => Promise<boolean>;
   readonly onDelete?: (() => void) | undefined;
   readonly headerAction?: ReactNode | undefined;
@@ -787,6 +795,7 @@ export function ProviderInstanceCard({
   onSelect,
   readOnly = false,
   canWriteSettings = true,
+  defaultRuntimeMode = DEFAULT_RUNTIME_MODE,
   onUpdate,
   onDelete,
   headerAction,
@@ -934,6 +943,15 @@ export function ProviderInstanceCard({
     onUpdate(
       normalized
         ? ({ ...rest, accentColor: normalized } as ProviderInstanceConfig)
+        : (rest as ProviderInstanceConfig),
+    );
+  };
+
+  const updateDefaultRuntimeMode = (value: RuntimeMode | null) => {
+    const { defaultRuntimeMode: _omit, ...rest } = instance;
+    onUpdate(
+      value !== null
+        ? ({ ...rest, defaultRuntimeMode: value } as ProviderInstanceConfig)
         : (rest as ProviderInstanceConfig),
     );
   };
@@ -1356,6 +1374,25 @@ export function ProviderInstanceCard({
     />
   );
 
+  const defaultPermissionsManagedReason =
+    managedPolicy !== undefined &&
+    (isManagedSettingPath(managedPolicy, "defaultRuntimeMode") ||
+      isManagedSettingPath(managedPolicy, `providerInstances.${instanceId}`))
+      ? gt("Managed by {organization}.", { organization: managedPolicy.organization })
+      : undefined;
+  const supportedDefaultRuntimeModes = (() => {
+    const modes = resolveCompatibleRuntimeMode(
+      instance.defaultRuntimeMode ?? defaultRuntimeMode,
+      liveProvider?.supportedRuntimeModes,
+    ).modes;
+    return instance.defaultRuntimeMode !== undefined && !modes.includes(instance.defaultRuntimeMode)
+      ? [...modes, instance.defaultRuntimeMode]
+      : modes;
+  })();
+  const effectiveDefaultRuntimeMode = instance.defaultRuntimeMode ?? defaultRuntimeMode;
+  const DefaultPermissionIcon = runtimeModeConfig[effectiveDefaultRuntimeMode].icon;
+  const INHERIT_RUNTIME_MODE_VALUE = "default";
+
   return (
     <>
       <SettingsSection title={displayName} icon={titleIconNode} headerAction={editorHeaderAction}>
@@ -1386,6 +1423,94 @@ export function ProviderInstanceCard({
                 placeholder={driverOption?.label ?? gt("Instance label")}
                 spellCheck={false}
               />
+            </div>
+          }
+        />
+        <SettingsRow
+          title={gt("Default permissions")}
+          description={gt(
+            "Permissions for new threads using this provider. Project overrides take precedence.",
+          )}
+          managed={defaultPermissionsManagedReason}
+          resetAction={
+            instance.defaultRuntimeMode !== undefined &&
+            !readOnly &&
+            defaultPermissionsManagedReason === undefined ? (
+              <SettingResetButton
+                ariaLabel={gt("Reset {provider} default permissions to default", {
+                  provider: displayName,
+                })}
+                onClick={() => updateDefaultRuntimeMode(null)}
+              />
+            ) : null
+          }
+          control={
+            <div
+              inert={readOnly}
+              aria-disabled={readOnly || undefined}
+              className={readOnly ? "opacity-50 select-none" : undefined}
+            >
+              <Select
+                value={instance.defaultRuntimeMode ?? INHERIT_RUNTIME_MODE_VALUE}
+                disabled={readOnly || defaultPermissionsManagedReason !== undefined}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  updateDefaultRuntimeMode(
+                    value === INHERIT_RUNTIME_MODE_VALUE ? null : (value as RuntimeMode),
+                  );
+                }}
+              >
+                <SelectTrigger
+                  size="sm"
+                  aria-label={gt("{provider} default permissions", { provider: displayName })}
+                >
+                  <DefaultPermissionIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <SelectValue>
+                    {instance.defaultRuntimeMode !== undefined
+                      ? m(runtimeModeConfig[instance.defaultRuntimeMode].label)
+                      : gt("Use default ({mode})", {
+                          mode: m(runtimeModeConfig[defaultRuntimeMode].label),
+                        })}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  <SelectItem value={INHERIT_RUNTIME_MODE_VALUE} className="min-w-64">
+                    <div className="grid gap-0.5">
+                      <span className="font-medium">
+                        <T>Use default</T>
+                      </span>
+                      <span className="text-xs leading-4 text-muted-foreground">
+                        {gt("Inherit the general or project default ({mode}).", {
+                          mode: m(runtimeModeConfig[defaultRuntimeMode].label),
+                        })}
+                      </span>
+                    </div>
+                  </SelectItem>
+                  {supportedDefaultRuntimeModes.map((mode) => {
+                    const option = runtimeModeConfig[mode];
+                    const Icon = option.icon;
+                    const managedReason = managedRuntimeModeDenial(managedPolicy, mode, m);
+                    return (
+                      <SelectItem
+                        key={mode}
+                        value={mode}
+                        disabled={managedReason !== undefined}
+                        className="min-w-64"
+                      >
+                        <div className="grid gap-0.5">
+                          <span className="inline-flex items-center gap-1.5 font-medium">
+                            <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                            {m(option.label)}
+                          </span>
+                          <span className="text-xs leading-4 text-muted-foreground">
+                            {managedReason ?? m(option.description)}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectPopup>
+              </Select>
             </div>
           }
         />

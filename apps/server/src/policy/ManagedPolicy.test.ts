@@ -378,6 +378,27 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
         '"defaultRuntimeMode" is above "limits.maxRuntimeMode"',
         '"defaultRuntimeMode" is above "limits.maxRuntimeMode"',
       ]);
+
+      const providerReason = yield* loadFrom(
+        JSON.stringify({
+          schemaVersion: 1,
+          organization: "Example Corp",
+          settings: {
+            "providerInstances.codex": {
+              value: { driver: "codex", defaultRuntimeMode: "full-access" },
+              locked: true,
+            },
+          },
+          limits: { maxRuntimeMode: "auto-accept-edits" },
+        }),
+      ).pipe(
+        Effect.flip,
+        Effect.map((error) => error.reason),
+      );
+      assert.equal(
+        providerReason,
+        '"providerInstances.codex.defaultRuntimeMode" is above "limits.maxRuntimeMode"',
+      );
     }),
   );
 
