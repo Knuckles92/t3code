@@ -52,6 +52,6 @@ Add a separate Antigravity instance in **Settings → Providers** for each Googl
 
 ## Usage and troubleshooting
 
-- **Usage → Limits** shows the five-hour and weekly allowances for the account signed in to the Antigravity CLI on that environment. If the bars are missing, open the CLI on that machine, sign in, and enter [`/usage`](https://antigravity.google/docs/cli/commands/usage). Refresh the Limits view afterward. T3 provider instances can use different Google accounts.
+- Open **Usage → Limits** to check the five-hour and weekly allowances for the account signed in to the Antigravity CLI on that environment. T3 keeps that reading between checks. Use **Refresh** in Limits to check again. If the bars are missing, open the CLI on that machine, sign in, and enter [`/usage`](https://antigravity.google/docs/cli/commands/usage). T3 provider instances can use different Google accounts.
 - Use **Refresh provider status** (web/desktop) or **Refresh models** (mobile) to reload models and access.
 - For `SUBSCRIPTION_REQUIRED` or account restriction errors, see [Google's account plans](https://antigravity.google/docs/plans).

@@ -70,6 +70,7 @@ export class UsageLimitSources extends Context.Service<
     readonly current: Effect.Effect<ReadonlyArray<UsageLimitSourceSnapshot>>;
     readonly streamChanges: Stream.Stream<ReadonlyArray<UsageLimitSourceSnapshot>>;
     readonly refresh: Effect.Effect<void>;
+    readonly refreshFromLimits: Effect.Effect<void>;
     readonly consumeResetCredit: (
       input: UsageLimitSourceConsumeResetCreditInput,
     ) => Effect.Effect<ProviderConsumeResetCreditResult, UsageLimitSourceError>;
@@ -225,26 +226,36 @@ export const make = Effect.fn("UsageLimitSources.make")(function* (
 
   // Serialize refreshes so slow old-settings reads cannot resurrect removed sources after newer refreshes.
   const refreshLock = yield* Semaphore.make(1);
-  const refresh = Effect.gen(function* () {
-    const settings = yield* settingsService.getSettings.pipe(
-      Effect.orElseSucceed((): ServerSettings | null => null),
-    );
-    const entries = Object.entries(settings?.usageLimitSources ?? {}).filter(
-      ([, config]) => config.enabled,
-    );
-    const [configured, cli] = yield* Effect.all(
-      [
-        Effect.forEach(entries, ([id, config]) => readSource(id as UsageLimitSourceId, config), {
-          concurrency: 4,
-        }),
-        settings && hasAntigravity(settings) ? readCli : Effect.succeed(null),
-      ],
-      { concurrency: 2 },
-    );
-    const snapshots =
-      cli && !configured.some((source) => source.id === cli.id) ? [...configured, cli] : configured;
-    yield* publish(keepLastGoodReadings(yield* Ref.get(stateRef), snapshots));
-  }).pipe(refreshLock.withPermits(1), Effect.ignoreCause({ log: true }));
+  const refreshSources = Effect.fn("UsageLimitSources.refresh")(
+    function* (checkAntigravity: boolean) {
+      const settings = yield* settingsService.getSettings.pipe(
+        Effect.orElseSucceed((): ServerSettings | null => null),
+      );
+      const entries = Object.entries(settings?.usageLimitSources ?? {}).filter(
+        ([, config]) => config.enabled,
+      );
+      const previous = yield* Ref.get(stateRef);
+      const cachedCli = previous.find((source) => source.kind === "antigravity-cli");
+      const cliReading = checkAntigravity ? readCli : Effect.succeed(cachedCli);
+      const [configured, cli] = yield* Effect.all(
+        [
+          Effect.forEach(entries, ([id, config]) => readSource(id as UsageLimitSourceId, config), {
+            concurrency: 4,
+          }),
+          settings && hasAntigravity(settings) ? cliReading : Effect.succeed(null),
+        ],
+        { concurrency: 2 },
+      );
+      const snapshots =
+        cli && !configured.some((source) => source.id === cli.id)
+          ? [...configured, cli]
+          : configured;
+      yield* publish(keepLastGoodReadings(previous, snapshots));
+    },
+    refreshLock.withPermits(1),
+    Effect.ignoreCause({ log: true }),
+  );
+  const refresh = refreshSources(false);
 
   // Shares the refresh lock so a stale in-flight read cannot overwrite a redemption.
   const consumeResetCredit = Effect.fn("UsageLimitSources.consumeResetCredit")(function* (
@@ -311,6 +322,7 @@ export const make = Effect.fn("UsageLimitSources.make")(function* (
     current: Ref.get(stateRef),
     consumeResetCredit,
     refresh,
+    refreshFromLimits: refreshSources(true),
     get streamChanges() {
       return Stream.unwrap(
         Effect.gen(function* () {

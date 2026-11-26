@@ -25,47 +25,62 @@ import * as UsageLimitSources from "./UsageLimitSources.ts";
 
 const encodeConfigEvent = Schema.encodeSync(ServerConfigStreamEvent);
 
-it.effect("reports the host CLI account once when several Antigravity instances are enabled", () =>
-  Effect.gen(function* () {
-    const snapshot: UsageLimitSourceSnapshot = {
-      id: UsageLimitSourceId.make("antigravity-cli"),
-      kind: "antigravity-cli",
-      label: "Antigravity CLI",
-      checkedAt: "2026-11-26T00:00:00.000Z",
-      accounts: [],
-    };
-    const sources = yield* UsageLimitSources.make(Effect.succeed(snapshot));
-    yield* sources.refresh;
-    const published = yield* sources.current;
-    expect(published).toEqual([snapshot]);
-    expect(() =>
-      encodeConfigEvent({
-        version: 1,
-        type: "usageLimitSourcesUpdated",
-        payload: { sources: published },
-      }),
-    ).not.toThrow();
-  }).pipe(
-    Effect.provide([
-      ServerSettings.layerTest({
-        providerInstances: Object.fromEntries(
-          ["first", "second"].map((id) => [
-            ProviderInstanceId.make(id),
-            { driver: ProviderDriverKind.make("antigravity"), enabled: true },
-          ]),
+it.effect(
+  "only checks the host CLI account on a Limits request and retains it between checks",
+  () =>
+    Effect.gen(function* () {
+      const snapshot: UsageLimitSourceSnapshot = {
+        id: UsageLimitSourceId.make("antigravity-cli"),
+        kind: "antigravity-cli",
+        label: "Antigravity CLI",
+        checkedAt: "2026-11-26T00:00:00.000Z",
+        accounts: [],
+      };
+      let calls = 0;
+      const sources = yield* UsageLimitSources.make(
+        Effect.sync(() => {
+          calls++;
+          return snapshot;
+        }),
+      );
+      yield* TestClock.adjust("6 minutes");
+      yield* sources.refresh;
+      expect(calls).toBe(0);
+      expect(yield* sources.current).toEqual([]);
+      yield* sources.refreshFromLimits;
+      yield* TestClock.adjust("6 minutes");
+      yield* sources.refresh;
+      expect(calls).toBe(1);
+      const published = yield* sources.current;
+      expect(published).toEqual([snapshot]);
+      expect(() =>
+        encodeConfigEvent({
+          version: 1,
+          type: "usageLimitSourcesUpdated",
+          payload: { sources: published },
+        }),
+      ).not.toThrow();
+    }).pipe(
+      Effect.provide([
+        ServerSettings.layerTest({
+          providerInstances: Object.fromEntries(
+            ["first", "second"].map((id) => [
+              ProviderInstanceId.make(id),
+              { driver: ProviderDriverKind.make("antigravity"), enabled: true },
+            ]),
+          ),
+        }),
+        NodeCrypto.layer,
+        Layer.mock(SecretResolver.SecretResolver)({}),
+        Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+          shouldRunScopeWork: () => Effect.succeed(true),
+        }),
+        Layer.succeed(
+          HttpClient.HttpClient,
+          HttpClient.make(() => Effect.die("Unexpected network request")),
         ),
-      }),
-      NodeCrypto.layer,
-      Layer.mock(SecretResolver.SecretResolver)({}),
-      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
-        shouldRunScopeWork: () => Effect.succeed(false),
-      }),
-      Layer.succeed(
-        HttpClient.HttpClient,
-        HttpClient.make(() => Effect.die("Unexpected network request")),
-      ),
-    ]),
-  ),
+      ]),
+    ),
 );
 
 it.effect("keeps malformed source URLs encodable for config subscribers", () =>
