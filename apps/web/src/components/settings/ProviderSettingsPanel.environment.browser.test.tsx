@@ -143,6 +143,7 @@ vi.mock(import("./settingsLayout"), async (original) => ({
     description,
     status,
     control,
+    resetAction,
     children,
   }: {
     id?: string;
@@ -150,6 +151,7 @@ vi.mock(import("./settingsLayout"), async (original) => ({
     description?: ReactNode;
     status?: ReactNode;
     control?: ReactNode;
+    resetAction?: ReactNode;
     children?: ReactNode;
   }) => (
     <div id={id}>
@@ -157,6 +159,7 @@ vi.mock(import("./settingsLayout"), async (original) => ({
       {description}
       {status}
       {control}
+      {resetAction}
       {children}
     </div>
   )) as never,
