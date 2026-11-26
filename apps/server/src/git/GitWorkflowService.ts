@@ -33,7 +33,7 @@ import { trimAsciiWhitespace } from "@t3tools/contracts";
 import * as GitManager from "./GitManager.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
-import { withWorkspaceLease } from "../workspace/workspaceLease.ts";
+import { withGitActionLease, withWorkspaceLease } from "../workspace/workspaceLease.ts";
 
 export class GitWorkflowService extends Context.Service<
   GitWorkflowService,
@@ -198,10 +198,14 @@ export const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
 
   // Nested projects and path aliases must share the checkout's branch-mutation lease.
-  const withCheckoutLease = <A, E, R>(rootPath: string, effect: Effect.Effect<A, E, R>) =>
+  const withCheckoutLease = <A, E, R>(
+    rootPath: string,
+    effect: Effect.Effect<A, E, R>,
+    lease = withWorkspaceLease,
+  ) =>
     fileSystem.realPath(rootPath).pipe(
       Effect.orElseSucceed(() => rootPath),
-      Effect.flatMap((cwd) => withWorkspaceLease(cwd, effect)),
+      Effect.flatMap((cwd) => lease(cwd, effect)),
     );
 
   const ensureGit = Effect.fn("GitWorkflowService.ensureGit")(function* (
@@ -429,6 +433,7 @@ export const make = Effect.gen(function* () {
           withCheckoutLease(
             handle.repository.rootPath,
             gitManager.runStackedAction(input, options),
+            withGitActionLease,
           ),
         ),
       );

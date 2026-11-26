@@ -1,7 +1,7 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- Effect's Crypto digest is effectful; a sync hash keeps historyPath a plain function.
 import * as NodeCrypto from "node:crypto";
 
-import { withWorkspaceLease } from "../workspace/workspaceLease.ts";
+import { withTerminalOpenLease, withWorkspaceLease } from "../workspace/workspaceLease.ts";
 import {
   DEFAULT_TERMINAL_ID,
   DEFAULT_MAX_TERMINAL_BUFFER_BYTES,
@@ -3440,11 +3440,15 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
     return snapshot(liveSession);
   });
 
-  const openLocked = (input: TerminalOpenInput) =>
-    withWorkspaceLease(
-      path.resolve(input.worktreePath ?? input.cwd),
-      openWithWorkspaceLease(input),
-    );
+  const openLocked = (input: TerminalOpenInput) => {
+    const cwd = path.resolve(input.worktreePath ?? input.cwd);
+    const open = openWithWorkspaceLease(input);
+    // Recheck a missing directory under the exclusive lease before recovering and spawning.
+    return withTerminalOpenLease(
+      cwd,
+      open.pipe(Effect.provideService(TerminalCwdRecovery, Effect.fail)),
+    ).pipe(Effect.catchTags({ TerminalCwdNotFoundError: () => withWorkspaceLease(cwd, open) }));
+  };
 
   const open: TerminalManager["Service"]["open"] = (input) =>
     withThreadLock(

@@ -50,6 +50,9 @@ import * as ServerSettings from "../serverSettings.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.ts";
 import * as TerminalManager from "./Manager.ts";
+import * as GitManager from "../git/GitManager.ts";
+import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
+import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 import * as GitWorkflowService from "../git/GitWorkflowService.ts";
 import { makePrepareTerminalLaunch } from "../workspace/restoreMissingWorktree.ts";
 import { layerNoTaskFolders } from "../orchestration-v2/ProviderTurnStartService.testkit.ts";
@@ -589,6 +592,50 @@ it.layer(
   ),
   { excludeTestServices: true },
 )("TerminalManager", (it) => {
+  it.effect("opens a terminal while commit and push is still running in its checkout", () =>
+    Effect.gen(function* () {
+      const { manager, baseDir, ptyAdapter } = yield* createManager();
+      const fs = yield* FileSystem.FileSystem;
+      const cwd = yield* fs.realPath(baseDir);
+      const pushing = yield* Deferred.make<void>();
+      const git = yield* GitWorkflowService.GitWorkflowService.pipe(
+        Effect.provide(
+          GitWorkflowService.layer.pipe(
+            Layer.provide(Layer.mock(GitVcsDriver.GitVcsDriver)({})),
+            Layer.provide(
+              Layer.mock(VcsDriverRegistry.VcsDriverRegistry)({
+                resolve: () =>
+                  Effect.succeed({
+                    repository: { rootPath: cwd },
+                  } as VcsDriverRegistry.VcsDriverHandle),
+              }),
+            ),
+            Layer.provide(
+              Layer.mock(GitManager.GitManager)({
+                runStackedAction: () =>
+                  Deferred.succeed(pushing, undefined).pipe(Effect.andThen(Effect.never)),
+              }),
+            ),
+          ),
+        ),
+      );
+      const push = yield* git
+        .runStackedAction({ actionId: "push", cwd, action: "commit_push" })
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(pushing);
+      const cleaned = yield* Deferred.make<void>();
+      const cleanup = yield* withWorkspaceLease(cwd, Deferred.succeed(cleaned, undefined)).pipe(
+        Effect.forkChild({ startImmediately: true }),
+      );
+      yield* manager.open(openInput({ cwd }));
+      assert.lengthOf(ptyAdapter.spawnInputs, 1);
+      assert.isFalse(yield* Deferred.isDone(cleaned));
+      yield* Fiber.interrupt(push);
+      yield* Fiber.join(cleanup);
+      assert.isTrue(yield* Deferred.isDone(cleaned));
+    }),
+  );
+
   it.effect.each([
     { method: "open", location: "managed" },
     { method: "attach", location: "managed" },

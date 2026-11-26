@@ -4,25 +4,30 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 
-const leases = new Map<string, { semaphore: Semaphore.Semaphore; users: number }>();
+const makeWorkspaceLease = () => {
+  const leases = new Map<string, { semaphore: Semaphore.Semaphore; users: number }>();
+  return <A, E, R>(cwd: string, effect: Effect.Effect<A, E, R>) =>
+    Effect.suspend(() => {
+      const lease = leases.get(cwd) ?? { semaphore: Semaphore.makeUnsafe(1), users: 0 };
+      leases.set(cwd, lease);
+      lease.users++;
+      return lease.semaphore.withPermit(effect).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            lease.users--;
+            if (lease.users === 0) leases.delete(cwd);
+          }),
+        ),
+      );
+    });
+};
 
-export const withWorkspaceLease = <A, E, R>(
-  cwd: string,
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R> =>
-  Effect.suspend(() => {
-    const lease = leases.get(cwd) ?? { semaphore: Semaphore.makeUnsafe(1), users: 0 };
-    leases.set(cwd, lease);
-    lease.users++;
-    return lease.semaphore.withPermit(effect).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          lease.users--;
-          if (lease.users === 0) leases.delete(cwd);
-        }),
-      ),
-    );
-  });
+export const withGitActionLease = makeWorkspaceLease();
+export const withTerminalOpenLease = makeWorkspaceLease();
+
+// Cleanup, checkout changes and recovery must exclude both Git actions and terminal startup.
+export const withWorkspaceLease = <A, E, R>(cwd: string, effect: Effect.Effect<A, E, R>) =>
+  withGitActionLease(cwd, withTerminalOpenLease(cwd, effect));
 
 // A restore rewrites files under its directory, so it must exclude provider
 // startup in any overlapping workspace: symlink aliases, parents, and children.
