@@ -19,6 +19,38 @@ Unified release workflow: `.github/workflows/release.yml`. Beta is a product lab
 
 ## Update feed
 
+### Windows releases for Knuckles92/t3code_with_addons
+
+Install the fork's v0.1.13 Windows x64 installer once to enable its stable GitHub Releases feed. Subsequent releases appear in the desktop updater when their version is higher than the installed version. A push to the branch alone does not publish an update.
+
+From a clean checkout of the commit already pushed to the fork, choose a new stable version and build in PowerShell:
+
+```powershell
+$version = '0.1.14'
+$repo = 'Knuckles92/t3code_with_addons'
+$out = "release/fork-v$version"
+$env:T3CODE_DESKTOP_UPDATE_REPOSITORY = $repo
+$env:T3CODE_DESKTOP_UNTRUSTED_BUNDLE = 'true'
+node scripts/build-desktop-artifact.ts --platform win --target nsis --arch x64 --build-version $version --output-dir $out --keep-stage --verbose
+```
+
+Set `$appDir` to the staged `app/dist/win-unpacked` path from the build log. Confirm the feed names the fork and run the packaged-server check:
+
+```powershell
+Remove-Item Env:T3CODE_DESKTOP_UNTRUSTED_BUNDLE
+Get-Content "$appDir/resources/app-update.yml"
+node scripts/verify-windows-desktop-artifact.ts --app-dir $appDir --build-version $version --arch x64 --verbose
+```
+
+After the checks pass, upload the installer, its blockmap and the generated stable manifest together:
+
+```powershell
+gh release create "v$version" "$out/T3-Code-$version-x64.exe" "$out/T3-Code-$version-x64.exe.blockmap" "$out/latest.yml" --repo $repo --target (git rev-parse HEAD) --draft --title "T3 Code $version for Windows" --generate-notes
+gh release edit "v$version" --repo $repo --draft=false --latest
+```
+
+### Upstream nightly releases
+
 Nightly installs check `releases.atom` (the 10 newest git tags), then the `update-feed` release's `nightly.json` pointer, then the GitHub API as fallback. **Never delete the `update-feed` release.**
 
 - If `Check the update feed` fails because stray/preview tags pushed the newest nightly out of `releases.atom`, delete the unneeded tags (`git push origin :refs/tags/<tag>`—converting a release to draft keeps its tag).
