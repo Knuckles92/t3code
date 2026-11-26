@@ -8,6 +8,7 @@ import {
   type ServerSettings,
   UsageLimitSourceConfig,
   settingsSecretLiteral,
+  resolveProviderInstanceEnabled,
   type UsageLimitSourceId,
   type UsageLimitSourceSnapshot,
 } from "@t3tools/contracts";
@@ -34,6 +35,7 @@ import { resolveSettingsSecrets } from "../secrets/settingsSecretValue.ts";
 import * as Settings from "../serverSettings.ts";
 import { windowLimitsModel } from "../provider/claudeUsageLimits.ts";
 import { makeCliproxyApi } from "./cliproxyApi.ts";
+import { makeCliQuotaReader } from "./AntigravityCliLimits.ts";
 
 const decodeHttpQuotaJson = Schema.decodeUnknownEffect(Schema.fromJsonString(HttpQuotaResponse));
 const decodeHttpQuotaResponse = Effect.fn("UsageLimitSources.decodeHttpQuotaResponse")(function* (
@@ -127,8 +129,15 @@ function missingManagementKey(config: UsageLimitSourceConfig): string {
     : "Could not read the management key from its secret provider.";
 }
 
+const hasAntigravity = (settings: ServerSettings) =>
+  Object.values(settings.providerInstances).some(
+    (instance) => instance.driver === "antigravity" && resolveProviderInstanceEnabled(instance),
+  );
+
 /** @public */
-export const make = Effect.gen(function* () {
+export const make = Effect.fn("UsageLimitSources.make")(function* (
+  readCli: Effect.Effect<UsageLimitSourceSnapshot | null>,
+) {
   const api = yield* makeCliproxyApi;
   const http = yield* HttpClient.HttpClient;
   const settingsService = yield* Settings.ServerSettingsService;
@@ -223,11 +232,17 @@ export const make = Effect.gen(function* () {
     const entries = Object.entries(settings?.usageLimitSources ?? {}).filter(
       ([, config]) => config.enabled,
     );
-    const snapshots = yield* Effect.forEach(
-      entries,
-      ([id, config]) => readSource(id as UsageLimitSourceId, config),
-      { concurrency: 4 },
+    const [configured, cli] = yield* Effect.all(
+      [
+        Effect.forEach(entries, ([id, config]) => readSource(id as UsageLimitSourceId, config), {
+          concurrency: 4,
+        }),
+        settings && hasAntigravity(settings) ? readCli : Effect.succeed(null),
+      ],
+      { concurrency: 2 },
     );
+    const snapshots =
+      cli && !configured.some((source) => source.id === cli.id) ? [...configured, cli] : configured;
     yield* publish(keepLastGoodReadings(yield* Ref.get(stateRef), snapshots));
   }).pipe(refreshLock.withPermits(1), Effect.ignoreCause({ log: true }));
 
@@ -261,8 +276,11 @@ export const make = Effect.gen(function* () {
   }, refreshLock.withPermits(1));
 
   yield* settingsService.streamChanges.pipe(
-    Stream.map((settings) => settings.usageLimitSources),
-    Stream.changes,
+    Stream.map((settings) => [settings.usageLimitSources, hasAntigravity(settings)] as const),
+    Stream.changesWith(
+      ([sources, enabled], [nextSources, nextEnabled]) =>
+        enabled === nextEnabled && Equal.equals(sources, nextSources),
+    ),
     Stream.runForEach(() => refresh),
     Effect.forkScoped,
   );
@@ -307,7 +325,7 @@ export const make = Effect.gen(function* () {
   } satisfies UsageLimitSources["Service"];
 });
 
-export const layer = Layer.effect(UsageLimitSources, make).pipe(
+export const layer = Layer.effect(UsageLimitSources, Effect.flatMap(makeCliQuotaReader, make)).pipe(
   Layer.provide(SecretResolverLayer.layer),
 );
 

@@ -1067,7 +1067,7 @@ export function collectProviderUsageLimits(
         id: `${source.id}:${account.id}`,
         driver: account.driver,
         label: `${source.label} · ${hubAccountName(account)}`,
-        sourceLabel: "CLI Proxy",
+        sourceLabel: source.kind === "antigravity-cli" ? source.label : "CLI Proxy",
         ...(account.usageLimits.resetCredits?.nextCreditId
           ? {
               resetCreditInput: {
