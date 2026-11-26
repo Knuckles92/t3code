@@ -3,6 +3,7 @@ import {
   expandAssistantCitationsForProvider,
 } from "@t3tools/shared/assistantCitations";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import * as NodePath from "@effect/platform-node/NodePath";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it, vi } from "vite-plus/test";
 import { it as effectIt } from "@effect/vitest";
@@ -102,10 +103,12 @@ const normalize = (target: string) => {
   }
   return `/${parts.join("/")}`;
 };
-const layerWorktreeLocation = (worktreesDir = managedWorktreesDir) =>
+const layerWorktreeLocation = (hostWorktreesDir?: string) =>
   Layer.mergeAll(
-    Path.layer,
-    Layer.mock(ServerConfig.ServerConfig)({ worktreesDir } as ServerConfig.ServerConfig["Service"]),
+    hostWorktreesDir === undefined ? Path.layer : NodePath.layer,
+    Layer.mock(ServerConfig.ServerConfig)({
+      worktreesDir: hostWorktreesDir ?? managedWorktreesDir,
+    } as ServerConfig.ServerConfig["Service"]),
     ServerSettings.layerTest(),
   );
 
